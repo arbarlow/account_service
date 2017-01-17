@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"flag"
 	"log"
 	"testing"
 
@@ -11,12 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var dbConnect string
 var db = setupDB()
 var as = AccountServer{}
 
 func setupDB() *gorm.DB {
-	conn := "host=localhost user=postgres dbname=account_service sslmode=disable"
-	db, err := as.DBConnect(conn)
+	conn := "host=localhost user=postgres dbname=account_service_test sslmode=disable"
+	flag.StringVar(&dbConnect, "connect", conn, "db connection string")
+	flag.Parse()
+
+	db, err := as.DBConnect(dbConnect)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
