@@ -1,0 +1,10 @@
+version: '2'
+services:
+  postgres:
+    image: postgres
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=account_service
