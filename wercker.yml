@@ -39,5 +39,4 @@ deploy:
         repository: alexrbarlow/account_service
         registry: https://registry.hub.docker.com
         cmd: ./account_service
-        tag: $WERCKER_GIT_COMMIT
         ports: "8000"

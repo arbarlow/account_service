@@ -22,16 +22,18 @@ func main() {
 	flag.StringVar(&dbConnect, "connect", defaultDb, "db connection string")
 	flag.Parse()
 
+	log.SetLevel(log.InfoLevel)
+
 	lis, err := net.Listen("tcp", ":8000")
 	if err != nil {
-		logger.Fatal("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %v", err)
 	}
 
 	as := server.AccountServer{}
 	db, err := as.DBConnect(dbConnect)
 	defer db.Close()
 	if err != nil {
-		logger.Fatal("failed to connect: %v", err)
+		logger.Fatalf("failed to connect: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
