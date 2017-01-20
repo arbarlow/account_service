@@ -80,3 +80,39 @@ func TestCreateEmpty(t *testing.T) {
 	assert.Empty(t, account.Id)
 	assert.NotNil(t, err)
 }
+
+func TestReadSuccess(t *testing.T) {
+	truncate()
+
+	ctx := context.Background()
+	req := &account.AccountCreateRequest{
+		Name:  "Alex B",
+		Email: "alexbarlowis@localhost",
+	}
+
+	a, err := as.Create(ctx, req)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a.Id)
+
+	areq := &account.AccountRequest{
+		Id: a.Id,
+	}
+
+	a2, err := as.Read(ctx, areq)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a2.Id)
+	assert.NotEmpty(t, a2.Email)
+}
+
+func TestReadFail(t *testing.T) {
+	truncate()
+
+	areq := &account.AccountRequest{
+		Id: "somefalseid",
+	}
+
+	ctx := context.Background()
+	a2, err := as.Read(ctx, areq)
+	assert.NotNil(t, err)
+	assert.Nil(t, a2)
+}

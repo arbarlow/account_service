@@ -2,6 +2,7 @@ package server
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	context "golang.org/x/net/context"
@@ -43,6 +44,10 @@ func (as *AccountServer) DBConnect(conn string) (*gorm.DB, error) {
 	return db, nil
 }
 
+func nullString(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: s != ""}
+}
+
 func (as AccountServer) Create(ctx context.Context, r *account.AccountCreateRequest) (*account.AccountDetails, error) {
 	a := Account{
 		Name:  nullString(r.Name),
@@ -58,6 +63,17 @@ func (as AccountServer) Create(ctx context.Context, r *account.AccountCreateRequ
 	}, err
 }
 
-func nullString(s string) sql.NullString {
-	return sql.NullString{String: s, Valid: s != ""}
+func (as AccountServer) Read(ctx context.Context, r *account.AccountRequest) (*account.AccountDetails, error) {
+	var a Account
+	as.db.Where("id = ?", r.Id).First(&a)
+
+	if a.Id == "" {
+		return nil, errors.New("No account found")
+	}
+
+	return &account.AccountDetails{
+		Id:    a.Id,
+		Name:  a.Name.String,
+		Email: a.Email.String,
+	}, nil
 }
