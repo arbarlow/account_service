@@ -116,3 +116,48 @@ func TestReadFail(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, a2)
 }
+
+func TestUpdateSuccess(t *testing.T) {
+	truncate()
+
+	ctx := context.Background()
+	req := &account.AccountCreateRequest{
+		Name:  "Alex B",
+		Email: "alexbarlowis@localhost",
+	}
+
+	a, err := as.Create(ctx, req)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a.Id)
+
+	email := "somethingnew@gmail.com"
+	a.Email = email
+
+	a2, err := as.Update(ctx, a)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a2.Id)
+	assert.Equal(t, a2.Email, email)
+
+	a3, err := as.Read(ctx, &account.AccountRequest{Id: a2.Id})
+	assert.Nil(t, err)
+	assert.Equal(t, a3.Email, email)
+}
+
+func TestDeleteSuccess(t *testing.T) {
+	truncate()
+
+	ctx := context.Background()
+	req := &account.AccountCreateRequest{
+		Name:  "Alex B",
+		Email: "alexbarlowis@localhost",
+	}
+
+	a, err := as.Create(ctx, req)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a.Id)
+
+	dr := &account.AccountDeleteRequest{Id: a.Id}
+	res, err := as.Delete(ctx, dr)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, res.Id)
+}

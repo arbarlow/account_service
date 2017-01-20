@@ -77,3 +77,41 @@ func (as AccountServer) Read(ctx context.Context, r *account.AccountRequest) (*a
 		Email: a.Email.String,
 	}, nil
 }
+
+func (as AccountServer) Update(ctx context.Context, r *account.AccountDetails) (*account.AccountDetails, error) {
+	var a Account
+	as.db.Where("id = ?", r.Id).First(&a)
+
+	if a.Id == "" {
+		return nil, errors.New("No account found")
+	}
+
+	a.Name = nullString(r.Name)
+	a.Email = nullString(r.Email)
+	err := as.db.Save(&a).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &account.AccountDetails{
+		Id:    a.Id,
+		Name:  a.Name.String,
+		Email: a.Email.String,
+	}, nil
+}
+
+func (as AccountServer) Delete(ctx context.Context, r *account.AccountDeleteRequest) (*account.AccountDeleteResponse, error) {
+	var a Account
+	as.db.Where("id = ?", r.Id).First(&a)
+
+	if a.Id == "" {
+		return nil, errors.New("No account found")
+	}
+
+	err := as.db.Delete(&a).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &account.AccountDeleteResponse{Id: a.Id}, nil
+}
