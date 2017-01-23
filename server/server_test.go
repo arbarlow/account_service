@@ -3,12 +3,12 @@ package server
 import (
 	"context"
 	"flag"
-	"log"
 	"testing"
 
 	"github.com/arbarlow/account_service/account"
-	"github.com/jinzhu/gorm"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,23 +16,21 @@ var dbConnect string
 var db = setupDB()
 var as = AccountServer{}
 
-func setupDB() *gorm.DB {
+func setupDB() *sqlx.DB {
 	conn := "host=localhost user=postgres dbname=account_service_test sslmode=disable"
 	flag.StringVar(&dbConnect, "connect", conn, "db connection string")
 	flag.Parse()
 
 	db, err := as.DBConnect(dbConnect)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		panic(err)
 	}
-
-	db.LogMode(false)
 
 	return db
 }
 
 func truncate() {
-	db.Exec("TRUNCATE accounts;")
+	db.MustExec("TRUNCATE accounts;")
 }
 
 func TestCreateSuccess(t *testing.T) {
@@ -58,12 +56,17 @@ func TestCreateUniqueness(t *testing.T) {
 		Email: "alexbarlowis@localhost",
 	}
 
-	account, err := as.Create(ctx, req)
-	assert.NotEmpty(t, account.Id)
+	a, err := as.Create(ctx, req)
+	assert.NotEmpty(t, a.Id)
 	assert.Nil(t, err)
 
-	account, err = as.Create(ctx, req)
-	assert.Empty(t, account.Id)
+	req2 := &account.AccountCreateRequest{
+		Name:  "Alex B",
+		Email: "alexbarlowis@localhost",
+	}
+
+	a2, err := as.Create(ctx, req2)
+	assert.Empty(t, a2.Id)
 	assert.NotNil(t, err)
 }
 
@@ -143,6 +146,23 @@ func TestUpdateSuccess(t *testing.T) {
 	assert.Equal(t, a3.Email, email)
 }
 
+func TestUpdateNotExist(t *testing.T) {
+	truncate()
+	ctx := context.Background()
+	u1 := uuid.NewV1()
+
+	email := "somethingnew@gmail.com"
+
+	a := &account.AccountDetails{
+		Id:    u1.String(),
+		Email: email,
+	}
+
+	a2, err := as.Update(ctx, a)
+	assert.NotNil(t, err)
+	assert.Nil(t, a2)
+}
+
 func TestDeleteSuccess(t *testing.T) {
 	truncate()
 
@@ -160,4 +180,15 @@ func TestDeleteSuccess(t *testing.T) {
 	res, err := as.Delete(ctx, dr)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, res.Id)
+}
+
+func TestDeleteAccountNotExist(t *testing.T) {
+	truncate()
+
+	ctx := context.Background()
+	u1 := uuid.NewV1()
+
+	dr := &account.AccountDeleteRequest{Id: u1.String()}
+	_, err := as.Delete(ctx, dr)
+	assert.NotNil(t, err)
 }

@@ -8,39 +8,46 @@ import (
 	context "golang.org/x/net/context"
 
 	"github.com/arbarlow/account_service/account"
-	"github.com/jinzhu/gorm"
+	"github.com/jmoiron/sqlx"
 )
 
+var schema = `
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE TABLE IF NOT EXISTS accounts (
+	id UUID PRIMARY KEY DEFAULT uuid_generate_v1mc(),
+	name text NULL,
+	email text NOT NULL,
+	created_at timestamp without time zone NOT NULL DEFAULT (now() at time zone 'utc')
+);
+
+CREATE UNIQUE INDEX ON accounts ((lower(email)));
+`
+
 type Account struct {
-	Id        string `sql:"id;type:uuid;primary_key;default:gen_random_uuid()"`
+	Id        string `db:"id"`
 	Name      sql.NullString
-	Email     sql.NullString `gorm:"not null;unique" valid:"email"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Email     sql.NullString
+	CreatedAt time.Time `db:"created_at"`
 }
 
 type AccountServer struct {
 	account.AccountServiceServer
-	db *gorm.DB
+	db *sqlx.DB
 }
 
-func (as *AccountServer) DBConnect(conn string) (*gorm.DB, error) {
-	db, err := gorm.Open("postgres", conn)
+var (
+	ErrAccountNotFound = errors.New("Account not found")
+)
+
+func (as *AccountServer) DBConnect(conn string) (*sqlx.DB, error) {
+	db, err := sqlx.Open("postgres", conn)
 	if err != nil {
 		return nil, err
 	}
 
-	res := db.Exec("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	res = db.AutoMigrate(&Account{})
-	if res.Error != nil {
-		return nil, res.Error
-	}
+	db.MustExec(schema)
 
 	as.db = db
-
 	return db, nil
 }
 
@@ -54,10 +61,17 @@ func (as AccountServer) Create(ctx context.Context, r *account.AccountCreateRequ
 		Email: nullString(r.Email),
 	}
 
-	err := as.db.Create(&a).Error
+	sql := "INSERT INTO accounts (name, email) VALUES (:name, :email) RETURNING id"
+	stmt, err := as.db.PrepareNamed(sql)
+	if err != nil {
+		return nil, err
+	}
+
+	var id string
+	err = stmt.Get(&id, &a)
 
 	return &account.AccountDetails{
-		Id:    a.Id,
+		Id:    id,
 		Name:  a.Name.String,
 		Email: a.Email.String,
 	}, err
@@ -65,10 +79,13 @@ func (as AccountServer) Create(ctx context.Context, r *account.AccountCreateRequ
 
 func (as AccountServer) Read(ctx context.Context, r *account.AccountRequest) (*account.AccountDetails, error) {
 	var a Account
-	as.db.Where("id = ?", r.Id).First(&a)
+	err := as.db.Get(&a, "SELECT * FROM accounts WHERE id = $1", r.Id)
+	if err != nil {
+		return nil, err
+	}
 
 	if a.Id == "" {
-		return nil, errors.New("No account found")
+		return nil, ErrAccountNotFound
 	}
 
 	return &account.AccountDetails{
@@ -79,18 +96,26 @@ func (as AccountServer) Read(ctx context.Context, r *account.AccountRequest) (*a
 }
 
 func (as AccountServer) Update(ctx context.Context, r *account.AccountDetails) (*account.AccountDetails, error) {
-	var a Account
-	as.db.Where("id = ?", r.Id).First(&a)
-
-	if a.Id == "" {
-		return nil, errors.New("No account found")
+	a := Account{
+		Id:    r.Id,
+		Name:  nullString(r.Name),
+		Email: nullString(r.Email),
 	}
 
-	a.Name = nullString(r.Name)
-	a.Email = nullString(r.Email)
-	err := as.db.Save(&a).Error
+	sql := `UPDATE accounts SET name = :name, email = :email WHERE id = :id`
+	res, err := as.db.NamedExec(sql, &a)
 	if err != nil {
 		return nil, err
+	}
+
+	aff, err := res.RowsAffected()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if aff == 0 {
+		return nil, ErrAccountNotFound
 	}
 
 	return &account.AccountDetails{
@@ -101,17 +126,21 @@ func (as AccountServer) Update(ctx context.Context, r *account.AccountDetails) (
 }
 
 func (as AccountServer) Delete(ctx context.Context, r *account.AccountDeleteRequest) (*account.AccountDeleteResponse, error) {
-	var a Account
-	as.db.Where("id = ?", r.Id).First(&a)
-
-	if a.Id == "" {
-		return nil, errors.New("No account found")
-	}
-
-	err := as.db.Delete(&a).Error
+	sql := `DELETE from accounts WHERE id = :id`
+	res, err := as.db.NamedExec(sql, &r)
 	if err != nil {
 		return nil, err
 	}
 
-	return &account.AccountDeleteResponse{Id: a.Id}, nil
+	aff, err := res.RowsAffected()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if aff == 0 {
+		return nil, ErrAccountNotFound
+	}
+
+	return &account.AccountDeleteResponse{Id: r.Id}, nil
 }
