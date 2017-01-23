@@ -2,12 +2,15 @@ package main
 
 import (
 	"net"
+	"net/http"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/arbarlow/account_service/account"
 	"github.com/arbarlow/account_service/server"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 )
 
@@ -37,9 +40,17 @@ func main() {
 		logger.Fatalf("failed to connect: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
-	account.RegisterAccountServiceServer(grpcServer, as)
+	grpcServer := grpc.NewServer(
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
 
-	logger.Info("Listening on :8000")
+	account.RegisterAccountServiceServer(grpcServer, as)
+	grpc_prometheus.Register(grpcServer)
+
+	logger.Info("Listening: gRPC:8000, Prometheus:8080")
+
+	http.Handle("/metrics", prometheus.Handler())
+	go http.ListenAndServe(":8080", nil)
 	grpcServer.Serve(lis)
 }
