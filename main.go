@@ -1,8 +1,8 @@
 package main
 
 import (
-	"flag"
 	"net"
+	"os"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/arbarlow/account_service/account"
@@ -11,16 +11,17 @@ import (
 	"google.golang.org/grpc"
 )
 
-var dbConnect string
+var defaultDb = "postgres://postgres@localhost/account_service?sslmode=disable"
 
 var logger = log.WithFields(log.Fields{
 	"service": "accounts",
 })
 
 func main() {
-	defaultDb := "host=localhost user=postgres dbname=account_service sslmode=disable"
-	flag.StringVar(&dbConnect, "connect", defaultDb, "db connection string")
-	flag.Parse()
+	dburl := os.Getenv("DATABASE_URL")
+	if dburl == "" {
+		dburl = defaultDb
+	}
 
 	log.SetLevel(log.InfoLevel)
 
@@ -30,7 +31,7 @@ func main() {
 	}
 
 	as := server.AccountServer{}
-	db, err := as.DBConnect(dbConnect)
+	db, err := as.DBConnect(dburl)
 	defer db.Close()
 	if err != nil {
 		logger.Fatalf("failed to connect: %v", err)

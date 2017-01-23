@@ -13,6 +13,7 @@ import (
 
 var schema = `
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS accounts (
 	id UUID PRIMARY KEY DEFAULT uuid_generate_v1mc(),
 	name text NULL,
