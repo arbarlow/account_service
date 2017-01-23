@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 	created_at timestamp without time zone NOT NULL DEFAULT (now() at time zone 'utc')
 );
 
-CREATE UNIQUE INDEX ON accounts ((lower(email)));
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_email ON accounts ((lower(email)));
 `
 
 type Account struct {

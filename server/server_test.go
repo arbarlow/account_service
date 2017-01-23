@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"flag"
+	"strconv"
 	"testing"
 
 	"github.com/arbarlow/account_service/account"
@@ -45,6 +46,24 @@ func TestCreateSuccess(t *testing.T) {
 
 	assert.NotEmpty(t, account.Id)
 	assert.Nil(t, err)
+}
+
+func BenchmarkCreate(b *testing.B) {
+	truncate()
+
+	for i := 0; i < b.N; i++ {
+		ctx := context.Background()
+		req := &account.AccountCreateRequest{
+			Name:  "Alex B",
+			Email: "alexbarlowis@localhost" + strconv.Itoa(i),
+		}
+
+		_, err := as.Create(ctx, req)
+
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func TestCreateUniqueness(t *testing.T) {
