@@ -36,7 +36,7 @@ deploy:
         username: $DOCKER_USERNAME
         password: $DOCKER_PASSWORD
         tag: latest
-        repository: alexrbarlow/account_service
+        repository: lileio/account_service
         registry: https://registry.hub.docker.com
         cmd: ./account_service
         ports: "8000"
