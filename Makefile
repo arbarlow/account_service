@@ -1,3 +1,6 @@
+run:
+	go run main.go
+
 proto:
 	protoc -I account/ account/account.proto --go_out=plugins=grpc:account
 

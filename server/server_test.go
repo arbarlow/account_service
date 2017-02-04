@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/arbarlow/account_service/account"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/lileio/account_service/account"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )

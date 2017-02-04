@@ -1,24 +1,18 @@
 package main
 
 import (
-	"net"
-	"net/http"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/arbarlow/account_service/account"
-	"github.com/arbarlow/account_service/server"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
-	_ "github.com/lib/pq"
-	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+
+	log "github.com/Sirupsen/logrus"
+	_ "github.com/lib/pq"
+	"github.com/lileio/account_service/account"
+	"github.com/lileio/account_service/server"
+	"github.com/lileio/lile"
 )
 
 var defaultDb = "postgres://postgres@localhost/account_service?sslmode=disable"
-
-var logger = log.WithFields(log.Fields{
-	"service": "accounts",
-})
 
 func main() {
 	dburl := os.Getenv("DATABASE_URL")
@@ -26,31 +20,21 @@ func main() {
 		dburl = defaultDb
 	}
 
-	log.SetLevel(log.InfoLevel)
-
-	lis, err := net.Listen("tcp", ":8000")
-	if err != nil {
-		logger.Fatalf("failed to listen: %v", err)
-	}
-
 	as := server.AccountServer{}
 	db, err := as.DBConnect(dburl)
 	defer db.Close()
 	if err != nil {
-		logger.Fatalf("failed to connect: %v", err)
+		log.Fatalf("failed to connect: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
-	)
+	impl := func(g *grpc.Server) {
+		account.RegisterAccountServiceServer(g, as)
+	}
 
-	account.RegisterAccountServiceServer(grpcServer, as)
-	grpc_prometheus.Register(grpcServer)
+	err = lile.NewServer(
+		lile.Name("account_service"),
+		lile.Implementation(impl),
+	).ListenAndServe()
 
-	logger.Info("Listening: gRPC:8000, Prometheus:8080")
-
-	http.Handle("/metrics", prometheus.Handler())
-	go http.ListenAndServe(":8080", nil)
-	grpcServer.Serve(lis)
+	log.Fatal(err)
 }

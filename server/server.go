@@ -7,8 +7,8 @@ import (
 
 	context "golang.org/x/net/context"
 
-	"github.com/arbarlow/account_service/account"
 	"github.com/jmoiron/sqlx"
+	"github.com/lileio/account_service/account"
 )
 
 var schema = `
