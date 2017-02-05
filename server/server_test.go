@@ -9,6 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/lileio/account_service/account"
+	"github.com/lileio/account_service/database"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,12 +23,15 @@ func setupDB() *sqlx.DB {
 	flag.StringVar(&dbConnect, "connect", conn, "db connection string")
 	flag.Parse()
 
-	db, err := as.DBConnect(dbConnect)
+	pg := database.PostgreSQL{}
+	err := pg.Connect(dbConnect)
 	if err != nil {
 		panic(err)
 	}
 
-	return db
+	as.DB = pg
+
+	return pg.DB
 }
 
 func truncate() {
@@ -76,8 +80,8 @@ func TestCreateUniqueness(t *testing.T) {
 	}
 
 	a, err := as.Create(ctx, req)
-	assert.NotEmpty(t, a.Id)
 	assert.Nil(t, err)
+	assert.NotEmpty(t, a.Id)
 
 	req2 := &account.AccountCreateRequest{
 		Name:  "Alex B",
@@ -85,8 +89,9 @@ func TestCreateUniqueness(t *testing.T) {
 	}
 
 	a2, err := as.Create(ctx, req2)
-	assert.Empty(t, a2.Id)
 	assert.NotNil(t, err)
+	assert.Equal(t, err, database.ErrEmailExists)
+	assert.Nil(t, a2)
 }
 
 func TestCreateEmpty(t *testing.T) {
@@ -99,8 +104,8 @@ func TestCreateEmpty(t *testing.T) {
 	}
 
 	account, err := as.Create(ctx, req)
-	assert.Empty(t, account.Id)
 	assert.NotNil(t, err)
+	assert.Nil(t, account)
 }
 
 func TestReadSuccess(t *testing.T) {
@@ -129,13 +134,16 @@ func TestReadSuccess(t *testing.T) {
 func TestReadFail(t *testing.T) {
 	truncate()
 
+	u1 := uuid.NewV1()
+
 	areq := &account.AccountRequest{
-		Id: "somefalseid",
+		Id: u1.String(),
 	}
 
 	ctx := context.Background()
 	a2, err := as.Read(ctx, areq)
 	assert.NotNil(t, err)
+	assert.Equal(t, err, database.ErrAccountNotFound)
 	assert.Nil(t, a2)
 }
 

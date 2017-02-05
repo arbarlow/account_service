@@ -8,6 +8,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	_ "github.com/lib/pq"
 	"github.com/lileio/account_service/account"
+	"github.com/lileio/account_service/database"
 	"github.com/lileio/account_service/server"
 	"github.com/lileio/lile"
 )
@@ -20,12 +21,14 @@ func main() {
 		dburl = defaultDb
 	}
 
-	as := server.AccountServer{}
-	db, err := as.DBConnect(dburl)
-	defer db.Close()
+	pg := database.PostgreSQL{}
+	err := pg.Connect(dburl)
+	// defer pg.Close()
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
 	}
+
+	as := server.AccountServer{DB: pg}
 
 	impl := func(g *grpc.Server) {
 		account.RegisterAccountServiceServer(g, as)
