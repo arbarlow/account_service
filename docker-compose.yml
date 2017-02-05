@@ -8,3 +8,7 @@ services:
       - 5432:5432
     environment:
       - POSTGRES_DB=account_service
+  cassandra:
+    image: cassandra
+    ports:
+      - 9042:9042

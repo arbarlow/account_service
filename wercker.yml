@@ -1,11 +1,22 @@
-box: golang:1.8
+box: lileio/gocassandra
 services:
    - id: postgres
      env:
-       POSTGRES_DB: account_service_test  # optional
+       POSTGRES_DB: account_service_test
+   - id: cassandra:3.0
 build:
   steps:
     - setup-go-workspace
+
+    - script:
+      name: "Wait for Cassandra connection"
+      code: |
+        sleep 30
+
+    - script:
+        name: create cassandra db
+        code: |
+          cqlsh ${CASSANDRA_PORT_9042_TCP_ADDR} -e "create keyspace account_service WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };"
 
     # Gets the dependencies
     - script:
@@ -15,9 +26,15 @@ build:
 
     # Test the project
     - script:
-        name: go test
+        name: go test (PG)
         code: |
-          go test ./... -v -connect "host=${POSTGRES_PORT_5432_TCP_ADDR} user=postgres dbname=account_service_test sslmode=disable"
+          POSTGRESQL_URL="host=${POSTGRES_PORT_5432_TCP_ADDR} user=postgres dbname=account_service_test sslmode=disable" go test ./... -v
+
+    # Test the project (cass)
+    - script:
+        name: go test (Cassandra)
+        code: |
+          CASSANDRA_DB_NAME="account_service" CASSANDRA_HOSTS="${CASSANDRA_PORT_9042_TCP_ADDR}" go test ./... -v
 
     # Build the project
     - script:

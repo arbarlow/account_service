@@ -2,36 +2,31 @@ package server
 
 import (
 	"context"
-	"flag"
+	"fmt"
 	"strconv"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/lileio/account_service/account"
+	"github.com/lileio/account_service/database"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
-var dbConnect string
 var db = setupDB()
 var as = AccountServer{}
 
-func setupDB() *sqlx.DB {
-	conn := "host=localhost user=postgres dbname=account_service_test sslmode=disable"
-	flag.StringVar(&dbConnect, "connect", conn, "db connection string")
-	flag.Parse()
-
-	db, err := as.DBConnect(dbConnect)
-	if err != nil {
-		panic(err)
-	}
-
-	return db
+func setupDB() database.Database {
+	conn := database.DatabaseFromEnv()
+	as.DB = conn
+	return conn
 }
 
 func truncate() {
-	db.MustExec("TRUNCATE accounts;")
+	err := db.Truncate()
+	if err != nil {
+		fmt.Printf("err = %+v\n", err)
+	}
 }
 
 func TestCreateSuccess(t *testing.T) {
@@ -44,8 +39,8 @@ func TestCreateSuccess(t *testing.T) {
 	}
 	account, err := as.Create(ctx, req)
 
-	assert.NotEmpty(t, account.Id)
 	assert.Nil(t, err)
+	assert.NotEmpty(t, account.Id)
 }
 
 func BenchmarkCreate(b *testing.B) {
@@ -76,8 +71,8 @@ func TestCreateUniqueness(t *testing.T) {
 	}
 
 	a, err := as.Create(ctx, req)
-	assert.NotEmpty(t, a.Id)
 	assert.Nil(t, err)
+	assert.NotEmpty(t, a.Id)
 
 	req2 := &account.AccountCreateRequest{
 		Name:  "Alex B",
@@ -85,8 +80,9 @@ func TestCreateUniqueness(t *testing.T) {
 	}
 
 	a2, err := as.Create(ctx, req2)
-	assert.Empty(t, a2.Id)
 	assert.NotNil(t, err)
+	assert.Equal(t, err, database.ErrEmailExists)
+	assert.Nil(t, a2)
 }
 
 func TestCreateEmpty(t *testing.T) {
@@ -99,8 +95,8 @@ func TestCreateEmpty(t *testing.T) {
 	}
 
 	account, err := as.Create(ctx, req)
-	assert.Empty(t, account.Id)
 	assert.NotNil(t, err)
+	assert.Nil(t, account)
 }
 
 func TestReadSuccess(t *testing.T) {
@@ -129,13 +125,16 @@ func TestReadSuccess(t *testing.T) {
 func TestReadFail(t *testing.T) {
 	truncate()
 
+	u1 := uuid.NewV1()
+
 	areq := &account.AccountRequest{
-		Id: "somefalseid",
+		Id: u1.String(),
 	}
 
 	ctx := context.Background()
 	a2, err := as.Read(ctx, areq)
 	assert.NotNil(t, err)
+	assert.Equal(t, err, database.ErrAccountNotFound)
 	assert.Nil(t, a2)
 }
 
