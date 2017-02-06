@@ -23,11 +23,11 @@ func main() {
 
 	pg := database.PostgreSQL{}
 	err := pg.Connect(dburl)
-	// defer pg.Close()
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
 	}
 
+	defer pg.Close()
 	as := server.AccountServer{DB: pg}
 
 	impl := func(g *grpc.Server) {

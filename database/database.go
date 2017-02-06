@@ -18,6 +18,7 @@ type Database interface {
 	Create(a *Account) error
 	Update(a *Account) error
 	Delete(ID string) error
+	Close() error
 }
 
 var (

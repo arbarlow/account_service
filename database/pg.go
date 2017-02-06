@@ -36,6 +36,10 @@ func (p *PostgreSQL) Connect(conn string) error {
 	return nil
 }
 
+func (p PostgreSQL) Close() error {
+	return p.DB.Close()
+}
+
 func (p PostgreSQL) ReadByID(ID string) (*Account, error) {
 	var a Account
 	err := p.DB.Get(&a, "SELECT * FROM accounts WHERE id = $1", ID)
