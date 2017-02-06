@@ -1,4 +1,7 @@
-# Account Service [![wercker status](https://app.wercker.com/status/0f73245f410394e8b923cd22ca86970f/s/master "wercker status")](https://app.wercker.com/project/byKey/0f73245f410394e8b923cd22ca86970f)
+# Account Service 
+
+[![wercker status](https://app.wercker.com/status/9dad41bd24267b293467b812647f5d37/s/master "wercker status")](https://app.wercker.com/project/byKey/9dad41bd24267b293467b812647f5d37)
+
 
 An account microservice that speaks gRPC backed by PostgreSQL, made with the [Lile generator](https://github.com/lileio/lile)
 
