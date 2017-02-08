@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -23,10 +22,7 @@ func setupDB() database.Database {
 }
 
 func truncate() {
-	err := db.Truncate()
-	if err != nil {
-		fmt.Printf("err = %+v\n", err)
-	}
+	db.Truncate()
 }
 
 func TestCreateSuccess(t *testing.T) {
