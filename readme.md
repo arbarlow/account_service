@@ -1,20 +1,16 @@
 # Account Service 
 
-[![wercker status](https://app.wercker.com/status/9dad41bd24267b293467b812647f5d37/s/master "wercker status")](https://app.wercker.com/project/byKey/9dad41bd24267b293467b812647f5d37)
+[![wercker status](https://app.wercker.com/status/9dad41bd24267b293467b812647f5d37/s/master "wercker status")](https://app.wercker.com/project/byKey/9dad41bd24267b293467b812647f5d37) [![Go Report Card](https://goreportcard.com/badge/github.com/lileio/account_service)](https://goreportcard.com/report/github.com/lileio/account_service)
 
+An account microservice that speaks gRPC made with the [Lile generator](https://github.com/lileio/lile), backed by PostgreSQL or Cassandra.
 
-An account microservice that speaks gRPC backed by PostgreSQL, made with the [Lile generator](https://github.com/lileio/lile)
-
-You can see the gRPC [protoc definition](https://github.com/arbarlow/account_service/blob/master/account/account.proto) for the RPC methods
-
-The service will migrate and setup it's own tables if none exist in Postgres at the time of boot.
-
-## ENVs
-
-`DATABASE_URL` sets the PostgreSQL location.
-
-```
-DATABASE_URL="postgres://postgres@10.0.0.1/account_service"
+``` protobuf
+service AccountService {
+  rpc Create (AccountCreateRequest) returns (AccountDetails) {}
+  rpc Read (AccountRequest) returns (AccountDetails) {}
+  rpc Update (AccountDetails) returns (AccountDetails) {}
+  rpc Delete (AccountDeleteRequest) returns (AccountDeleteResponse) {}
+}
 ```
 
 ## Docker
@@ -25,9 +21,75 @@ A pre build Docker container is available at:
 docker pull lileio/account_service
 ```
 
-## Development
-The `docker-compose.yml` file will setup PostgreSQL with a default DB, but you will need create the test database
+## Validations
 
+At the moment the service will reject account create and update requests have either a blank name or email. "" is considered blank.
+
+There is no email validation so to speak as I've never seen it done right.
+
+## Setup
+
+Setup is configured via environment variables, depending on the database chosen.
+
+### PostgreSQL
+
+PostgreSQL is configured using the single ENV variable `POSTGRESQL_URL` and can either be a url like string e.g. 
+
+`POSTGRESQL_URL="postgres://host/database"`
+
+ or a PostgreSQL connection string e.g:
+ 
+ `POSTGRESQL_URL="host=localhost dbname=account_service sslmode=disable user=postgres"`
+ 
+ Account service uses UUID's as primary key and a single table with the following schema:
+ 
+ ``` sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE TABLE IF NOT EXISTS accounts (
+	id UUID PRIMARY KEY DEFAULT uuid_generate_v1mc(),
+	name text NULL,
+	email text NOT NULL,
+	created_at timestamp without time zone NOT NULL DEFAULT (now() at time zone 'utc')
+);
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_email ON accounts ((lower(email)));
+ ```
+
+### Cassandra
+
+Cassandra needs two ENV variables, the keyspace name and hosts to connect to (a comma seperated list):
+
+`CASSANDRA_DB_NAME="account_service"`
+
+`CASSANDRA_HOSTS="10.0.0.1,10.0.0.2"`
+
+Becuase of the way Cassandra works and uses primary keys, two tables are maintained so you lookup accounts by `ID` and by `Email`, it uses the follow schema:
+
+``` sql
+CREATE TABLE account_service.accounts_map_id (
+    id text PRIMARY KEY,
+    createdat timestamp,
+    email text,
+    name text
+)
+
+CREATE TABLE account_service.accounts_map_email (
+    email text PRIMARY KEY,
+    id text
+)
 ```
+
+## Development/Test
+The `docker-compose.yml` file will run PostgreSQL and Cassandra, but you will need create the test databases
+
+For PostgreSQL (using psql):
+
+``` sql
 CREATE DATABASE account_service_test;
 ```
+
+For Cassanda:
+
+``` sql
+create keyspace account_service WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
+```
+
