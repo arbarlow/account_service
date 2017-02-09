@@ -8,11 +8,24 @@ An account microservice that speaks gRPC made with the [Lile generator](https://
 service AccountService {
   rpc GetById (GetByIdRequest) returns (Account) {}
   rpc GetByEmail (GetByEmailRequest) returns (Account) {}
+  rpc AuthenticateByEmail (AuthRequest) returns (Account) {}
   rpc Create (CreateRequest) returns (Account) {}
   rpc Update (Account) returns (Account) {}
   rpc Delete (DeleteRequest) returns (DeleteResponse) {}
 }
 ```
+## Details
+
+### Authentication
+Passwords are stored hashed with [bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt), no RPC method returns passwords or hashed passwords.
+
+You can do simple authentication with the `AuthenticateByEmail` RPC method to roll your own authentication logic. I.e you can auth with email and password, but managing password length or auth tokens is up to you atm.
+
+### Validations
+
+At the moment the service will reject account create and update requests have either a blank name or email. "" is considered blank.
+
+There is no email validation so to speak as I've never seen it done right.
 
 ## Docker
 
@@ -21,12 +34,6 @@ A pre build Docker container is available at:
 ```
 docker pull lileio/account_service
 ```
-
-## Validations
-
-At the moment the service will reject account create and update requests have either a blank name or email. "" is considered blank.
-
-There is no email validation so to speak as I've never seen it done right.
 
 ## Setup
 
@@ -50,6 +57,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 	id UUID PRIMARY KEY DEFAULT uuid_generate_v1mc(),
 	name text NULL,
 	email text NOT NULL,
+  hashed_password text NOT NULL,
 	created_at timestamp without time zone NOT NULL DEFAULT (now() at time zone 'utc')
 );
 CREATE UNIQUE INDEX IF NOT EXISTS accounts_email ON accounts ((lower(email)));
@@ -70,6 +78,7 @@ CREATE TABLE account_service.accounts_map_id (
     id text PRIMARY KEY,
     createdat timestamp,
     email text,
+    hashedpassword text,
     name text
 )
 
