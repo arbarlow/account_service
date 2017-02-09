@@ -1,6 +1,8 @@
 package server
 
 import (
+	"errors"
+
 	context "golang.org/x/net/context"
 
 	"github.com/lileio/account_service/account"
@@ -12,9 +14,13 @@ type AccountServer struct {
 	DB database.Database
 }
 
+var (
+	ErrAuthFail = errors.New("email or password incorrect")
+)
+
 func (as AccountServer) Create(ctx context.Context, r *account.CreateRequest) (*account.Account, error) {
 	a := database.NewAccount(r.Name, r.Email)
-	err := as.DB.Create(&a)
+	err := as.DB.Create(&a, r.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +41,24 @@ func (as AccountServer) GetByEmail(ctx context.Context, r *account.GetByEmailReq
 	a, err := as.DB.ReadByEmail(r.Email)
 	if err != nil {
 		return nil, err
+	}
+
+	return accountDetailsFromAccount(a), nil
+}
+
+func (as AccountServer) AuthenticateByEmail(ctx context.Context, r *account.AuthRequest) (*account.Account, error) {
+	a, err := as.DB.ReadByEmail(r.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	if a == nil {
+		return nil, ErrAuthFail
+	}
+
+	err = a.ComparePasswordToHash(r.Password)
+	if err != nil {
+		return nil, ErrAuthFail
 	}
 
 	return accountDetailsFromAccount(a), nil

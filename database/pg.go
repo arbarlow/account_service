@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 	id UUID PRIMARY KEY DEFAULT uuid_generate_v1mc(),
 	name text NULL,
 	email text NOT NULL,
+	hashed_password text NOT NULL,
 	created_at timestamp without time zone NOT NULL DEFAULT (now() at time zone 'utc')
 );
 
@@ -73,13 +74,25 @@ func (p *PostgreSQL) ReadByEmail(email string) (*Account, error) {
 	return &a, nil
 }
 
-func (p *PostgreSQL) Create(a *Account) error {
+func (p *PostgreSQL) Create(a *Account, password string) error {
 	err := a.Valid()
 	if err != nil {
 		return err
 	}
 
-	sql := "INSERT INTO accounts (name, email) VALUES (:name, :email) RETURNING id"
+	if password == "" {
+		return ErrNoPasswordGiven
+	}
+
+	err = a.hashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	sql := `
+	INSERT INTO accounts (name, email, hashed_password)
+	VALUES (:name, :email, :hashed_password) RETURNING id`
+
 	stmt, err := p.DB.PrepareNamed(sql)
 	if err != nil {
 		return err

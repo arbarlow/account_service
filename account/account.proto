@@ -15,9 +15,15 @@ message GetByEmailRequest {
   string email = 1;
 }
 
+message AuthRequest {
+  string email = 1;
+  string password = 2;
+}
+
 message CreateRequest {
   string name = 1;
   string email = 2;
+  string password = 3;
 }
 
 message DeleteRequest {
@@ -31,6 +37,7 @@ message DeleteResponse {
 service AccountService {
   rpc GetById (GetByIdRequest) returns (Account) {}
   rpc GetByEmail (GetByEmailRequest) returns (Account) {}
+  rpc AuthenticateByEmail (AuthRequest) returns (Account) {}
   rpc Create (CreateRequest) returns (Account) {}
   rpc Update (Account) returns (Account) {}
   rpc Delete (DeleteRequest) returns (DeleteResponse) {}

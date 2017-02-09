@@ -65,7 +65,7 @@ func (c *Cassandra) Truncate() error {
 	return c.Session.Query("truncate account_service.accounts_map_email").Exec()
 }
 
-func (p *Cassandra) Create(a *Account) error {
+func (p *Cassandra) Create(a *Account, password string) error {
 	// Check the email table to see if this account exists
 	ae, err := p.ReadByEmail(a.Email)
 	if err != nil && err != ErrAccountNotFound {
@@ -84,6 +84,15 @@ func (p *Cassandra) Create(a *Account) error {
 		return err
 	}
 
+	if password == "" {
+		return ErrNoPasswordGiven
+	}
+
+	err = a.hashPassword(password)
+	if err != nil {
+		return err
+	}
+
 	err = p.AccountsIDTable.Set(a).Run()
 	if err != nil {
 		return err
@@ -93,8 +102,8 @@ func (p *Cassandra) Create(a *Account) error {
 }
 
 func (p *Cassandra) ReadByEmail(email string) (*Account, error) {
-	a := Account{}
-	err := p.AccountsEmailTable.Read(email, &a).Run()
+	a := &Account{}
+	err := p.AccountsEmailTable.Read(email, a).Run()
 
 	switch err.(type) {
 	case gocassa.RowNotFoundError:
@@ -105,7 +114,12 @@ func (p *Cassandra) ReadByEmail(email string) (*Account, error) {
 		return nil, err
 	}
 
-	return &a, nil
+	a, err = p.ReadByID(a.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
 }
 
 func (p *Cassandra) ReadByID(ID string) (*Account, error) {

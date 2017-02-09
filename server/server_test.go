@@ -25,17 +25,26 @@ func truncate() {
 	db.Truncate()
 }
 
+var name = "Alex B"
+var email = "alexb@localhost"
+var pass = "password"
+
+func createAccount(t *testing.T) *account.Account {
+	ctx := context.Background()
+	req := &account.CreateRequest{
+		Name:     name,
+		Email:    email,
+		Password: pass,
+	}
+	account, err := as.Create(ctx, req)
+	assert.Nil(t, err)
+	return account
+}
+
 func TestCreateSuccess(t *testing.T) {
 	truncate()
 
-	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "alexbarlowis@localhost",
-	}
-	account, err := as.Create(ctx, req)
-
-	assert.Nil(t, err)
+	account := createAccount(t)
 	assert.NotEmpty(t, account.Id)
 }
 
@@ -45,8 +54,9 @@ func BenchmarkCreate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx := context.Background()
 		req := &account.CreateRequest{
-			Name:  "Alex B",
-			Email: "alexbarlowis@localhost" + strconv.Itoa(i),
+			Name:     "Alex B",
+			Email:    "alexbarlowis@localhost" + strconv.Itoa(i),
+			Password: "somesecurepassword",
 		}
 
 		_, err := as.Create(ctx, req)
@@ -61,18 +71,12 @@ func TestCreateUniqueness(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "alexbarlowis@localhost",
-	}
-
-	a, err := as.Create(ctx, req)
-	assert.Nil(t, err)
-	assert.NotEmpty(t, a.Id)
+	a1 := createAccount(t)
 
 	req2 := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "alexbarlowis@localhost",
+		Name:     "Alex B",
+		Email:    a1.Email,
+		Password: "somesecurepassword",
 	}
 
 	a2, err := as.Create(ctx, req2)
@@ -86,8 +90,9 @@ func TestCreateEmpty(t *testing.T) {
 
 	ctx := context.Background()
 	req := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "",
+		Name:     "Alex B",
+		Email:    "",
+		Password: "",
 	}
 
 	account, err := as.Create(ctx, req)
@@ -99,14 +104,7 @@ func TestGetByIdSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "alexbarlowis@localhost",
-	}
-
-	a, err := as.Create(ctx, req)
-	assert.Nil(t, err)
-	assert.NotEmpty(t, a.Id)
+	a := createAccount(t)
 
 	areq := &account.GetByIdRequest{
 		Id: a.Id,
@@ -116,6 +114,39 @@ func TestGetByIdSuccess(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, a2.Id)
 	assert.NotEmpty(t, a2.Email)
+}
+
+func TestAuthenticate(t *testing.T) {
+	truncate()
+
+	ctx := context.Background()
+	createAccount(t)
+
+	ar := &account.AuthRequest{
+		Email:    email,
+		Password: pass,
+	}
+
+	a, err := as.AuthenticateByEmail(ctx, ar)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a.Id)
+	assert.NotEmpty(t, a.Email)
+}
+
+func TestAuthenticateFailure(t *testing.T) {
+	truncate()
+
+	ctx := context.Background()
+	createAccount(t)
+
+	ar := &account.AuthRequest{
+		Email:    email,
+		Password: "incorrect password lol",
+	}
+
+	_, err := as.AuthenticateByEmail(ctx, ar)
+	assert.NotNil(t, err)
+	assert.Equal(t, err, ErrAuthFail)
 }
 
 func TestGetByIdFail(t *testing.T) {
@@ -138,17 +169,10 @@ func TestGetByEmailSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "alexbarlowis@localhost",
-	}
-
-	a, err := as.Create(ctx, req)
-	assert.Nil(t, err)
-	assert.NotEmpty(t, a.Id)
+	a := createAccount(t)
 
 	areq := &account.GetByEmailRequest{
-		Email: "alexbarlowis@localhost",
+		Email: a.Email,
 	}
 
 	a2, err := as.GetByEmail(ctx, areq)
@@ -161,14 +185,7 @@ func TestUpdateSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "alexbarlowis@localhost",
-	}
-
-	a, err := as.Create(ctx, req)
-	assert.Nil(t, err)
-	assert.NotEmpty(t, a.Id)
+	a := createAccount(t)
 
 	email := "somethingnew@gmail.com"
 	a.Email = email
@@ -204,14 +221,7 @@ func TestDeleteSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:  "Alex B",
-		Email: "alexbarlowis@localhost",
-	}
-
-	a, err := as.Create(ctx, req)
-	assert.Nil(t, err)
-	assert.NotEmpty(t, a.Id)
+	a := createAccount(t)
 
 	dr := &account.DeleteRequest{Id: a.Id}
 	res, err := as.Delete(ctx, dr)
