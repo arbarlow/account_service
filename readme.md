@@ -6,10 +6,11 @@ An account microservice that speaks gRPC made with the [Lile generator](https://
 
 ``` protobuf
 service AccountService {
-  rpc Create (AccountCreateRequest) returns (AccountDetails) {}
-  rpc Read (AccountRequest) returns (AccountDetails) {}
-  rpc Update (AccountDetails) returns (AccountDetails) {}
-  rpc Delete (AccountDeleteRequest) returns (AccountDeleteResponse) {}
+  rpc GetById (GetByIdRequest) returns (Account) {}
+  rpc GetByEmail (GetByEmailRequest) returns (Account) {}
+  rpc Create (CreateRequest) returns (Account) {}
+  rpc Update (Account) returns (Account) {}
+  rpc Delete (DeleteRequest) returns (DeleteResponse) {}
 }
 ```
 

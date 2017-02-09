@@ -29,7 +29,7 @@ func TestCreateSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.AccountCreateRequest{
+	req := &account.CreateRequest{
 		Name:  "Alex B",
 		Email: "alexbarlowis@localhost",
 	}
@@ -44,7 +44,7 @@ func BenchmarkCreate(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		ctx := context.Background()
-		req := &account.AccountCreateRequest{
+		req := &account.CreateRequest{
 			Name:  "Alex B",
 			Email: "alexbarlowis@localhost" + strconv.Itoa(i),
 		}
@@ -61,7 +61,7 @@ func TestCreateUniqueness(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.AccountCreateRequest{
+	req := &account.CreateRequest{
 		Name:  "Alex B",
 		Email: "alexbarlowis@localhost",
 	}
@@ -70,7 +70,7 @@ func TestCreateUniqueness(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, a.Id)
 
-	req2 := &account.AccountCreateRequest{
+	req2 := &account.CreateRequest{
 		Name:  "Alex B",
 		Email: "alexbarlowis@localhost",
 	}
@@ -85,7 +85,7 @@ func TestCreateEmpty(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.AccountCreateRequest{
+	req := &account.CreateRequest{
 		Name:  "Alex B",
 		Email: "",
 	}
@@ -95,11 +95,11 @@ func TestCreateEmpty(t *testing.T) {
 	assert.Nil(t, account)
 }
 
-func TestReadSuccess(t *testing.T) {
+func TestGetByIdSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.AccountCreateRequest{
+	req := &account.CreateRequest{
 		Name:  "Alex B",
 		Email: "alexbarlowis@localhost",
 	}
@@ -108,37 +108,60 @@ func TestReadSuccess(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, a.Id)
 
-	areq := &account.AccountRequest{
+	areq := &account.GetByIdRequest{
 		Id: a.Id,
 	}
 
-	a2, err := as.Read(ctx, areq)
+	a2, err := as.GetById(ctx, areq)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, a2.Id)
 	assert.NotEmpty(t, a2.Email)
 }
 
-func TestReadFail(t *testing.T) {
+func TestGetByIdFail(t *testing.T) {
 	truncate()
 
 	u1 := uuid.NewV1()
 
-	areq := &account.AccountRequest{
+	areq := &account.GetByIdRequest{
 		Id: u1.String(),
 	}
 
 	ctx := context.Background()
-	a2, err := as.Read(ctx, areq)
+	a2, err := as.GetById(ctx, areq)
 	assert.NotNil(t, err)
 	assert.Equal(t, err, database.ErrAccountNotFound)
 	assert.Nil(t, a2)
+}
+
+func TestGetByEmailSuccess(t *testing.T) {
+	truncate()
+
+	ctx := context.Background()
+	req := &account.CreateRequest{
+		Name:  "Alex B",
+		Email: "alexbarlowis@localhost",
+	}
+
+	a, err := as.Create(ctx, req)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a.Id)
+
+	areq := &account.GetByEmailRequest{
+		Email: "alexbarlowis@localhost",
+	}
+
+	a2, err := as.GetByEmail(ctx, areq)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a2.Id)
+	assert.NotEmpty(t, a2.Email)
 }
 
 func TestUpdateSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.AccountCreateRequest{
+	req := &account.CreateRequest{
 		Name:  "Alex B",
 		Email: "alexbarlowis@localhost",
 	}
@@ -155,7 +178,7 @@ func TestUpdateSuccess(t *testing.T) {
 	assert.NotEmpty(t, a2.Id)
 	assert.Equal(t, a2.Email, email)
 
-	a3, err := as.Read(ctx, &account.AccountRequest{Id: a2.Id})
+	a3, err := as.GetById(ctx, &account.GetByIdRequest{Id: a2.Id})
 	assert.Nil(t, err)
 	assert.Equal(t, a3.Email, email)
 }
@@ -167,7 +190,7 @@ func TestUpdateNotExist(t *testing.T) {
 
 	email := "somethingnew@gmail.com"
 
-	a := &account.AccountDetails{
+	a := &account.Account{
 		Id:    u1.String(),
 		Email: email,
 	}
@@ -181,7 +204,7 @@ func TestDeleteSuccess(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.AccountCreateRequest{
+	req := &account.CreateRequest{
 		Name:  "Alex B",
 		Email: "alexbarlowis@localhost",
 	}
@@ -190,7 +213,7 @@ func TestDeleteSuccess(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, a.Id)
 
-	dr := &account.AccountDeleteRequest{Id: a.Id}
+	dr := &account.DeleteRequest{Id: a.Id}
 	res, err := as.Delete(ctx, dr)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, res.Id)
@@ -202,7 +225,7 @@ func TestDeleteAccountNotExist(t *testing.T) {
 	ctx := context.Background()
 	u1 := uuid.NewV1()
 
-	dr := &account.AccountDeleteRequest{Id: u1.String()}
+	dr := &account.DeleteRequest{Id: u1.String()}
 	_, err := as.Delete(ctx, dr)
 	assert.NotNil(t, err)
 }

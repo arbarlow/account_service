@@ -1,32 +1,37 @@
 syntax = "proto3";
 package account;
 
-message AccountDetails {
+message Account {
   string id = 1;
   string name = 2;
   string email = 3;
 }
 
-message AccountCreateRequest {
+message GetByIdRequest {
+  string id = 1;
+}
+
+message GetByEmailRequest {
+  string email = 1;
+}
+
+message CreateRequest {
   string name = 1;
   string email = 2;
 }
 
-message AccountRequest {
+message DeleteRequest {
   string id = 1;
 }
 
-message AccountDeleteRequest {
-  string id = 1;
-}
-
-message AccountDeleteResponse {
+message DeleteResponse {
   string id = 1;
 }
 
 service AccountService {
-  rpc Create (AccountCreateRequest) returns (AccountDetails) {}
-  rpc Read (AccountRequest) returns (AccountDetails) {}
-  rpc Update (AccountDetails) returns (AccountDetails) {}
-  rpc Delete (AccountDeleteRequest) returns (AccountDeleteResponse) {}
+  rpc GetById (GetByIdRequest) returns (Account) {}
+  rpc GetByEmail (GetByEmailRequest) returns (Account) {}
+  rpc Create (CreateRequest) returns (Account) {}
+  rpc Update (Account) returns (Account) {}
+  rpc Delete (DeleteRequest) returns (DeleteResponse) {}
 }
