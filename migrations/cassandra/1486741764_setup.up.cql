@@ -1,4 +1,4 @@
-CREATE TABLE account_service.accounts_map_id (
+CREATE TABLE accounts_map_id (
     id text PRIMARY KEY,
     createdat timestamp,
     email text,
@@ -6,7 +6,7 @@ CREATE TABLE account_service.accounts_map_id (
     name text
 );
 
-CREATE TABLE account_service.accounts_map_email (
+CREATE TABLE accounts_map_email (
     email text PRIMARY KEY,
     id text
 );

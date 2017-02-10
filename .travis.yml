@@ -1,0 +1,27 @@
+language: go
+sudo: required
+services:
+  - docker
+
+go:
+  - 1.8
+
+before_script:
+  - docker run --name cassandra -d -p 9042:9042 cassandra:latest
+  - docker run --name postgres -d -p 9043:5432 postgres:latest
+  - sleep 20
+  - psql -c 'create database account_service_test;' -h localhost -p 9043 -U postgres
+  - >
+    docker run --link cassandra:cassandra cassandra cqlsh cassandra -e "create keyspace account_service_test WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };"
+
+script:
+  - go get -t ./...
+  - POSTGRESQL_URL="postgres://postgres@localhost:9043/account_service_test?sslmode=disable" go test ./... -v
+  - CASSANDRA_DB_NAME="account_service_test" CASSANDRA_HOSTS="localhost" go test ./... -v
+
+after_success:
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+    make docker;
+    docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+    docker push lileio/account_service;
+    fi

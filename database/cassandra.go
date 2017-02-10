@@ -58,13 +58,12 @@ func (c *Cassandra) Connect(keyspace string, addrs []string) error {
 }
 
 func (c *Cassandra) Close() error {
-
 	c.Session.Close()
 	return nil
 }
 
 func (c *Cassandra) Truncate() error {
-	return c.Session.Query("truncate account_service.accounts_map_email").Exec()
+	return c.Session.Query("truncate accounts_map_email").Exec()
 }
 
 func (p *Cassandra) Create(a *Account, password string) error {
