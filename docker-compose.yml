@@ -1,4 +1,5 @@
 version: '2'
+services:
   postgres:
     image: postgres
     volumes:
@@ -11,3 +12,4 @@ version: '2'
     image: cassandra
     ports:
       - 9042:9042
+

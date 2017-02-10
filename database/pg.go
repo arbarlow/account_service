@@ -1,8 +1,12 @@
 package database
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
+	_ "github.com/gemnasium/migrate/driver/postgres"
+	"github.com/gemnasium/migrate/migrate"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -11,27 +15,17 @@ type PostgreSQL struct {
 	DB *sqlx.DB
 }
 
-const schema = `
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-CREATE TABLE IF NOT EXISTS accounts (
-	id UUID PRIMARY KEY DEFAULT uuid_generate_v1mc(),
-	name text NULL,
-	email text NOT NULL,
-	hashed_password text NOT NULL,
-	created_at timestamp without time zone NOT NULL DEFAULT (now() at time zone 'utc')
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS accounts_email ON accounts ((lower(email)));
-`
-
 func (p *PostgreSQL) Connect(conn string) error {
 	db, err := sqlx.Open("postgres", conn)
 	if err != nil {
 		return err
 	}
 
-	db.MustExec(schema)
+	allErrors, ok := migrate.UpSync(conn, "../migrations/pg")
+	if !ok {
+		fmt.Printf("allErrors = %+v\n", allErrors)
+		return errors.New("migration error")
+	}
 
 	p.DB = db
 	return nil

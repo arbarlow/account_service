@@ -1,8 +1,12 @@
 package database
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
+	_ "github.com/gemnasium/migrate/driver/cassandra"
+	"github.com/gemnasium/migrate/migrate"
 	"github.com/gocassa/gocassa"
 	"github.com/gocql/gocql"
 	uuid "github.com/satori/go.uuid"
@@ -30,6 +34,12 @@ func (c *Cassandra) Connect(keyspace string, addrs []string) error {
 
 	c.Session = session
 
+	allErrors, ok := migrate.UpSync("cassandra://"+addrs[0]+"/"+keyspace+"?disable_init_host_lookup", "../migrations/cassandra")
+	if !ok {
+		fmt.Printf("allErrors = %+v\n", allErrors)
+		return errors.New("migration error")
+	}
+
 	conn := gocassa.NewConnection(gocassa.GoCQLSessionToQueryExecutor(session))
 
 	c.AccountsIDTable = conn.KeySpace(keyspace).MapTable(
@@ -37,20 +47,12 @@ func (c *Cassandra) Connect(keyspace string, addrs []string) error {
 		"ID",
 		&Account{},
 	)
-	err = c.AccountsIDTable.CreateIfNotExist()
-	if err != nil {
-		return err
-	}
 
 	c.AccountsEmailTable = conn.KeySpace(keyspace).MapTable(
 		"accounts",
 		"Email",
 		&emailIDMap{},
 	)
-	err = c.AccountsEmailTable.CreateIfNotExist()
-	if err != nil {
-		return err
-	}
 
 	return nil
 }

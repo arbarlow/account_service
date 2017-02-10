@@ -28,7 +28,7 @@ build:
     - script:
         name: go test (PG)
         code: |
-          POSTGRESQL_URL="host=${POSTGRES_PORT_5432_TCP_ADDR} user=postgres dbname=account_service_test sslmode=disable" go test ./... -v
+          POSTGRESQL_URL="postgres://postgres@${POSTGRES_PORT_5432_TCP_ADDR}/account_service?sslmode=disable" go test ./... -v
 
     # Test the project (cass)
     - script:

@@ -39,15 +39,15 @@ docker pull lileio/account_service
 
 Setup is configured via environment variables, depending on the database chosen.
 
+The app creates it's own tables on startup, but does need the databases creating before startup.
+
+If a new column is added or similar, on next boot the app will migrate and add that column.
+
 ### PostgreSQL
 
-PostgreSQL is configured using the single ENV variable `POSTGRESQL_URL` and can either be a url like string e.g. 
+PostgreSQL is configured using the single ENV variable `POSTGRESQL_URL` and can be a url like string e.g. 
 
 `POSTGRESQL_URL="postgres://host/database"`
-
- or a PostgreSQL connection string e.g:
- 
- `POSTGRESQL_URL="host=localhost dbname=account_service sslmode=disable user=postgres"`
  
  Account service uses UUID's as primary key and a single table with the following schema:
  
