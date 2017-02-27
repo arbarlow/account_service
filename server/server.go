@@ -5,6 +5,7 @@ import (
 
 	context "golang.org/x/net/context"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/lileio/account_service/account"
 	"github.com/lileio/account_service/database"
 )
@@ -15,11 +16,16 @@ type AccountServer struct {
 }
 
 var (
-	ErrAuthFail = errors.New("email or password incorrect")
+	ErrAuthFail  = errors.New("email or password incorrect")
+	ErrNoAccount = errors.New("no account details provided")
 )
 
-func (as AccountServer) Create(ctx context.Context, r *account.CreateRequest) (*account.Account, error) {
-	a := database.NewAccount(r.Name, r.Email)
+func (as AccountServer) Create(ctx context.Context, r *account.CreateAccountRequest) (*account.Account, error) {
+	if r.Account == nil {
+		return nil, ErrNoAccount
+	}
+
+	a := database.NewAccount(r.Account.Name, r.Account.Email)
 	err := as.DB.Create(&a, r.Password)
 	if err != nil {
 		return nil, err
@@ -46,7 +52,7 @@ func (as AccountServer) GetByEmail(ctx context.Context, r *account.GetByEmailReq
 	return accountDetailsFromAccount(a), nil
 }
 
-func (as AccountServer) AuthenticateByEmail(ctx context.Context, r *account.AuthRequest) (*account.Account, error) {
+func (as AccountServer) AuthenticateByEmail(ctx context.Context, r *account.AuthenticateByEmailRequest) (*account.Account, error) {
 	a, err := as.DB.ReadByEmail(r.Email)
 	if err != nil {
 		return nil, err
@@ -64,8 +70,12 @@ func (as AccountServer) AuthenticateByEmail(ctx context.Context, r *account.Auth
 	return accountDetailsFromAccount(a), nil
 }
 
-func (as AccountServer) Update(ctx context.Context, r *account.Account) (*account.Account, error) {
-	a := database.NewAccount(r.Name, r.Email)
+func (as AccountServer) Update(ctx context.Context, r *account.UpdateAccountRequest) (*account.Account, error) {
+	if r.Account == nil {
+		return nil, ErrNoAccount
+	}
+
+	a := database.NewAccount(r.Account.Name, r.Account.Email)
 	a.ID = r.Id
 
 	err := as.DB.Update(&a)
@@ -76,13 +86,13 @@ func (as AccountServer) Update(ctx context.Context, r *account.Account) (*accoun
 	return accountDetailsFromAccount(&a), nil
 }
 
-func (as AccountServer) Delete(ctx context.Context, r *account.DeleteRequest) (*account.DeleteResponse, error) {
+func (as AccountServer) Delete(ctx context.Context, r *account.DeleteAccountRequest) (*empty.Empty, error) {
 	err := as.DB.Delete(r.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &account.DeleteResponse{Id: r.Id}, nil
+	return &empty.Empty{}, nil
 }
 
 func accountDetailsFromAccount(a *database.Account) *account.Account {

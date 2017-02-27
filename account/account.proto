@@ -1,10 +1,22 @@
 syntax = "proto3";
+import "google/protobuf/empty.proto";
+
 package account;
 
 message Account {
   string id = 1;
   string name = 2;
   string email = 3;
+}
+
+message ListAccountsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  string next_page_token = 2;
 }
 
 message GetByIdRequest {
@@ -15,30 +27,31 @@ message GetByEmailRequest {
   string email = 1;
 }
 
-message AuthRequest {
+message AuthenticateByEmailRequest {
   string email = 1;
   string password = 2;
 }
 
-message CreateRequest {
-  string name = 1;
-  string email = 2;
-  string password = 3;
+message CreateAccountRequest {
+  Account account = 1;
+  string password = 2;
 }
 
-message DeleteRequest {
+message UpdateAccountRequest {
   string id = 1;
+  Account account = 2;
 }
 
-message DeleteResponse {
+message DeleteAccountRequest {
   string id = 1;
 }
 
 service AccountService {
+  rpc List (ListAccountsRequest) returns (ListAccountsResponse) {}
   rpc GetById (GetByIdRequest) returns (Account) {}
   rpc GetByEmail (GetByEmailRequest) returns (Account) {}
-  rpc AuthenticateByEmail (AuthRequest) returns (Account) {}
-  rpc Create (CreateRequest) returns (Account) {}
-  rpc Update (Account) returns (Account) {}
-  rpc Delete (DeleteRequest) returns (DeleteResponse) {}
+  rpc AuthenticateByEmail (AuthenticateByEmailRequest) returns (Account) {}
+  rpc Create (CreateAccountRequest) returns (Account) {}
+  rpc Update (UpdateAccountRequest) returns (Account) {}
+  rpc Delete (DeleteAccountRequest) returns (google.protobuf.Empty) {}
 }

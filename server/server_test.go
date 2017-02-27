@@ -31,9 +31,11 @@ var pass = "password"
 
 func createAccount(t *testing.T) *account.Account {
 	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:     name,
-		Email:    email,
+	req := &account.CreateAccountRequest{
+		Account: &account.Account{
+			Name:  name,
+			Email: email,
+		},
 		Password: pass,
 	}
 	account, err := as.Create(ctx, req)
@@ -53,10 +55,12 @@ func BenchmarkCreate(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		ctx := context.Background()
-		req := &account.CreateRequest{
-			Name:     "Alex B",
-			Email:    "alexbarlowis@localhost" + strconv.Itoa(i),
-			Password: "somesecurepassword",
+		req := &account.CreateAccountRequest{
+			Account: &account.Account{
+				Name:  name,
+				Email: "alexbarlowis@localhost" + strconv.Itoa(i),
+			},
+			Password: pass,
 		}
 
 		_, err := as.Create(ctx, req)
@@ -73,10 +77,9 @@ func TestCreateUniqueness(t *testing.T) {
 	ctx := context.Background()
 	a1 := createAccount(t)
 
-	req2 := &account.CreateRequest{
-		Name:     "Alex B",
-		Email:    a1.Email,
-		Password: "somesecurepassword",
+	req2 := &account.CreateAccountRequest{
+		Account:  a1,
+		Password: pass,
 	}
 
 	a2, err := as.Create(ctx, req2)
@@ -89,11 +92,7 @@ func TestCreateEmpty(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	req := &account.CreateRequest{
-		Name:     "Alex B",
-		Email:    "",
-		Password: "",
-	}
+	req := &account.CreateAccountRequest{}
 
 	account, err := as.Create(ctx, req)
 	assert.NotNil(t, err)
@@ -122,7 +121,7 @@ func TestAuthenticate(t *testing.T) {
 	ctx := context.Background()
 	createAccount(t)
 
-	ar := &account.AuthRequest{
+	ar := &account.AuthenticateByEmailRequest{
 		Email:    email,
 		Password: pass,
 	}
@@ -139,7 +138,7 @@ func TestAuthenticateFailure(t *testing.T) {
 	ctx := context.Background()
 	createAccount(t)
 
-	ar := &account.AuthRequest{
+	ar := &account.AuthenticateByEmailRequest{
 		Email:    email,
 		Password: "incorrect password lol",
 	}
@@ -190,7 +189,12 @@ func TestUpdateSuccess(t *testing.T) {
 	email := "somethingnew@gmail.com"
 	a.Email = email
 
-	a2, err := as.Update(ctx, a)
+	ar := &account.UpdateAccountRequest{
+		Id:      a.Id,
+		Account: a,
+	}
+
+	a2, err := as.Update(ctx, ar)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, a2.Id)
 	assert.Equal(t, a2.Email, email)
@@ -205,14 +209,11 @@ func TestUpdateNotExist(t *testing.T) {
 	ctx := context.Background()
 	u1 := uuid.NewV1()
 
-	email := "somethingnew@gmail.com"
-
-	a := &account.Account{
-		Id:    u1.String(),
-		Email: email,
+	ar := &account.UpdateAccountRequest{
+		Id: u1.String(),
 	}
 
-	a2, err := as.Update(ctx, a)
+	a2, err := as.Update(ctx, ar)
 	assert.NotNil(t, err)
 	assert.Nil(t, a2)
 }
@@ -223,10 +224,10 @@ func TestDeleteSuccess(t *testing.T) {
 	ctx := context.Background()
 	a := createAccount(t)
 
-	dr := &account.DeleteRequest{Id: a.Id}
+	dr := &account.DeleteAccountRequest{Id: a.Id}
 	res, err := as.Delete(ctx, dr)
 	assert.Nil(t, err)
-	assert.NotEmpty(t, res.Id)
+	assert.NotEmpty(t, res)
 }
 
 func TestDeleteAccountNotExist(t *testing.T) {
@@ -235,7 +236,7 @@ func TestDeleteAccountNotExist(t *testing.T) {
 	ctx := context.Background()
 	u1 := uuid.NewV1()
 
-	dr := &account.DeleteRequest{Id: u1.String()}
+	dr := &account.DeleteAccountRequest{Id: u1.String()}
 	_, err := as.Delete(ctx, dr)
 	assert.NotNil(t, err)
 }
