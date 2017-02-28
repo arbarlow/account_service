@@ -3,6 +3,8 @@ package database
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	_ "github.com/gemnasium/migrate/driver/postgres"
@@ -21,7 +23,8 @@ func (p *PostgreSQL) Connect(conn string) error {
 		return err
 	}
 
-	allErrors, ok := migrate.UpSync(conn, "../migrations/pg")
+	wd := os.ExpandEnv("$GOPATH/src/github.com/lileio/account_service")
+	allErrors, ok := migrate.UpSync(conn, wd+"/migrations/pg")
 	if !ok {
 		fmt.Printf("allErrors = %+v\n", allErrors)
 		return errors.New("migration error")
@@ -38,6 +41,29 @@ func (p *PostgreSQL) Close() error {
 func (p *PostgreSQL) Truncate() error {
 	p.DB.MustExec("TRUNCATE accounts;")
 	return nil
+}
+
+func (p *PostgreSQL) List(count int32, token string) (accounts []*Account, next_token string, err error) {
+	if token == "" {
+		token = "0"
+	}
+
+	offset, err := strconv.Atoi(token)
+	if err != nil {
+		return accounts, next_token, err
+	}
+
+	q := "select * from accounts order by created_at asc limit $1 offset $2"
+	err = p.DB.Select(&accounts, q, count, offset)
+	if err != nil {
+		return accounts, next_token, err
+	}
+
+	if len(accounts) == int(count) {
+		next_token = strconv.FormatInt(int64(offset+int(count)+1), 10)
+	}
+
+	return accounts, next_token, err
 }
 
 func (p *PostgreSQL) ReadByID(ID string) (*Account, error) {

@@ -20,6 +20,7 @@ var (
 )
 
 type Database interface {
+	List(count int32, token string) ([]*Account, string, error)
 	ReadByID(ID string) (*Account, error)
 	ReadByEmail(email string) (*Account, error)
 	Create(a *Account, password string) error

@@ -2,9 +2,12 @@ package server
 
 import (
 	"context"
+	"math/rand"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/gocql/gocql"
 	_ "github.com/lib/pq"
 	"github.com/lileio/account_service/account"
 	"github.com/lileio/account_service/database"
@@ -30,17 +33,66 @@ var email = "alexb@localhost"
 var pass = "password"
 
 func createAccount(t *testing.T) *account.Account {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
 	req := &account.CreateAccountRequest{
 		Account: &account.Account{
 			Name:  name,
-			Email: email,
+			Email: "alexbarlowis@localhost" + strconv.Itoa(r.Int()),
 		},
 		Password: pass,
 	}
 	account, err := as.Create(ctx, req)
 	assert.Nil(t, err)
 	return account
+}
+
+func TestSimpleList(t *testing.T) {
+	truncate()
+
+	for i := 0; i < 5; i++ {
+		createAccount(t)
+	}
+
+	ctx := context.Background()
+	req := &account.ListAccountsRequest{
+		PageSize: 6,
+	}
+
+	l, err := as.List(ctx, req)
+	assert.Nil(t, err)
+	assert.Empty(t, l.NextPageToken)
+}
+
+func TestSimpleListToken(t *testing.T) {
+	a := gocql.All
+	database.Consistency = &a
+	truncate()
+
+	acc := []*account.Account{}
+	for i := 0; i < 4; i++ {
+		acc = append(acc, createAccount(t))
+	}
+
+	ctx := context.Background()
+	req := &account.ListAccountsRequest{
+		PageSize: 2,
+	}
+
+	l, err := as.List(ctx, req)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, l.NextPageToken)
+
+	req = &account.ListAccountsRequest{
+		PageSize:  2,
+		PageToken: l.NextPageToken,
+	}
+
+	l, err = as.List(ctx, req)
+	assert.Nil(t, err)
+	assert.Empty(t, l.NextPageToken)
+
+	database.Consistency = nil
 }
 
 func TestCreateSuccess(t *testing.T) {
@@ -119,10 +171,10 @@ func TestAuthenticate(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	createAccount(t)
+	a := createAccount(t)
 
 	ar := &account.AuthenticateByEmailRequest{
-		Email:    email,
+		Email:    a.Email,
 		Password: pass,
 	}
 
@@ -136,10 +188,10 @@ func TestAuthenticateFailure(t *testing.T) {
 	truncate()
 
 	ctx := context.Background()
-	createAccount(t)
+	a := createAccount(t)
 
 	ar := &account.AuthenticateByEmailRequest{
-		Email:    email,
+		Email:    a.Email,
 		Password: "incorrect password lol",
 	}
 

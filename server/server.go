@@ -20,6 +20,24 @@ var (
 	ErrNoAccount = errors.New("no account details provided")
 )
 
+func (as AccountServer) List(ctx context.Context, l *account.ListAccountsRequest) (*account.ListAccountsResponse, error) {
+	accounts, next_token, err := as.DB.List(l.PageSize, l.PageToken)
+	if err != nil {
+		return nil, err
+	}
+
+	accs := make([]*account.Account, len(accounts))
+
+	for i, acc := range accounts {
+		accs[i] = accountDetailsFromAccount(acc)
+	}
+
+	return &account.ListAccountsResponse{
+		Accounts:      accs,
+		NextPageToken: next_token,
+	}, err
+}
+
 func (as AccountServer) Create(ctx context.Context, r *account.CreateAccountRequest) (*account.Account, error) {
 	if r.Account == nil {
 		return nil, ErrNoAccount
