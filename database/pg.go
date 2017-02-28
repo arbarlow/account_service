@@ -38,7 +38,7 @@ func (p *PostgreSQL) Close() error {
 	return p.DB.Close()
 }
 
-func (p *PostgreSQL) Truncate() error {
+func (p *PostgreSQL) Truncate(reconnect bool) error {
 	p.DB.MustExec("TRUNCATE accounts;")
 	return nil
 }
