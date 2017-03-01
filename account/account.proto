@@ -7,6 +7,7 @@ message Account {
   string id = 1;
   string name = 2;
   string email = 3;
+  map<string, string> images = 4;
 }
 
 message ListAccountsRequest {

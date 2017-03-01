@@ -31,17 +31,19 @@ type Database interface {
 }
 
 type Account struct {
-	ID             string    `db:"id"`
-	Name           string    `validate:"required"`
-	Email          string    `validate:"required"`
-	HashedPassword string    `db:"hashed_password"`
-	CreatedAt      time.Time `db:"created_at"`
+	ID             string            `db:"id"`
+	Name           string            `validate:"required"`
+	Email          string            `validate:"required"`
+	HashedPassword string            `db:"hashed_password"`
+	CreatedAt      time.Time         `db:"created_at"`
+	Images         map[string]string `pg:",hstore"`
 }
 
-func NewAccount(name, email string) Account {
+func NewAccount(name, email string, images map[string]string) Account {
 	return Account{
-		Name:  name,
-		Email: email,
+		Name:   name,
+		Email:  email,
+		Images: images,
 	}
 }
 
@@ -51,8 +53,9 @@ func (a *Account) Valid() error {
 
 func (a *Account) ToMap() map[string]interface{} {
 	return map[string]interface{}{
-		"Name":  a.Name,
-		"Email": a.Email,
+		"Name":   a.Name,
+		"Email":  a.Email,
+		"Images": a.Images,
 	}
 }
 

@@ -7,21 +7,24 @@ import (
 	"strconv"
 	"strings"
 
+	pg "gopkg.in/pg.v5"
+
 	_ "github.com/gemnasium/migrate/driver/postgres"
 	"github.com/gemnasium/migrate/migrate"
-	"github.com/jmoiron/sqlx"
 )
 
 type PostgreSQL struct {
 	Database
-	DB *sqlx.DB
+	db *pg.DB
 }
 
 func (p *PostgreSQL) Connect(conn string) error {
-	db, err := sqlx.Open("postgres", conn)
+	opts, err := pg.ParseURL(conn)
 	if err != nil {
 		return err
 	}
+
+	p.db = pg.Connect(opts)
 
 	wd := os.ExpandEnv("$GOPATH/src/github.com/lileio/account_service")
 	allErrors, ok := migrate.UpSync(conn, wd+"/migrations/pg")
@@ -30,20 +33,20 @@ func (p *PostgreSQL) Connect(conn string) error {
 		return errors.New("migration error")
 	}
 
-	p.DB = db
 	return nil
 }
 
 func (p *PostgreSQL) Close() error {
-	return p.DB.Close()
+	return p.db.Close()
 }
 
 func (p *PostgreSQL) Truncate(reconnect bool) error {
-	p.DB.MustExec("TRUNCATE accounts;")
+	p.db.Exec("TRUNCATE accounts;")
 	return nil
 }
 
-func (p *PostgreSQL) List(count int32, token string) (accounts []*Account, next_token string, err error) {
+func (p *PostgreSQL) List(count32 int32, token string) (accounts []*Account, next_token string, err error) {
+	count := int(count32)
 	if token == "" {
 		token = "0"
 	}
@@ -53,22 +56,25 @@ func (p *PostgreSQL) List(count int32, token string) (accounts []*Account, next_
 		return accounts, next_token, err
 	}
 
-	q := "select * from accounts order by created_at asc limit $1 offset $2"
-	err = p.DB.Select(&accounts, q, count, offset)
+	err = p.db.Model(&Account{}).Column("account.*").
+		Limit(count).
+		Offset(offset).
+		Select(&accounts)
+
 	if err != nil {
 		return accounts, next_token, err
 	}
 
 	if len(accounts) == int(count) {
-		next_token = strconv.FormatInt(int64(offset+int(count)+1), 10)
+		next_token = strconv.FormatInt(int64(offset+count+1), 10)
 	}
 
 	return accounts, next_token, err
 }
 
 func (p *PostgreSQL) ReadByID(ID string) (*Account, error) {
-	var a Account
-	err := p.DB.Get(&a, "SELECT * FROM accounts WHERE id = $1", ID)
+	a := Account{ID: ID}
+	err := p.db.Select(&a)
 	if err != nil && notFoundError(err) {
 		return nil, ErrAccountNotFound
 	}
@@ -81,8 +87,8 @@ func (p *PostgreSQL) ReadByID(ID string) (*Account, error) {
 }
 
 func (p *PostgreSQL) ReadByEmail(email string) (*Account, error) {
-	var a Account
-	err := p.DB.Get(&a, "SELECT * FROM accounts WHERE email = $1", email)
+	a := Account{}
+	err := p.db.Model(&a).Where("email = ?", email).Select()
 	if err != nil && notFoundError(err) {
 		return nil, ErrAccountNotFound
 	}
@@ -109,17 +115,7 @@ func (p *PostgreSQL) Create(a *Account, password string) error {
 		return err
 	}
 
-	sql := `
-	INSERT INTO accounts (name, email, hashed_password)
-	VALUES (:name, :email, :hashed_password) RETURNING id`
-
-	stmt, err := p.DB.PrepareNamed(sql)
-	if err != nil {
-		return err
-	}
-
-	var id string
-	err = stmt.Get(&id, a)
+	err = p.db.Insert(&a)
 	if err != nil && uniqueEmailError(err) {
 		return ErrEmailExists
 	}
@@ -127,8 +123,6 @@ func (p *PostgreSQL) Create(a *Account, password string) error {
 	if err != nil {
 		return err
 	}
-
-	a.ID = id
 
 	return nil
 }
@@ -139,43 +133,30 @@ func (p *PostgreSQL) Update(a *Account) error {
 		return err
 	}
 
-	sql := `UPDATE accounts SET name = :name, email = :email WHERE id = :id`
-	res, err := p.DB.NamedExec(sql, a)
+	_, err = p.db.Model(&a).
+		Column("name", "email", "images").
+		Returning("*").
+		Update()
 	if err != nil && uniqueEmailError(err) {
 		return ErrEmailExists
 	}
 
-	if err != nil {
-		return err
-	}
-
-	aff, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if aff == 0 {
+	if err != nil && notFoundError(err) {
 		return ErrAccountNotFound
+	}
+
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
 func (p *PostgreSQL) Delete(ID string) error {
-	sql := `DELETE from accounts WHERE id = $1`
-	res, err := p.DB.Exec(sql, ID)
+	a := Account{ID: ID}
+	err := p.db.Delete(&a)
 	if err != nil {
 		return err
-	}
-
-	aff, err := res.RowsAffected()
-
-	if err != nil {
-		return err
-	}
-
-	if aff == 0 {
-		return ErrAccountNotFound
 	}
 
 	return nil

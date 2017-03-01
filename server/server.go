@@ -43,7 +43,7 @@ func (as AccountServer) Create(ctx context.Context, r *account.CreateAccountRequ
 		return nil, ErrNoAccount
 	}
 
-	a := database.NewAccount(r.Account.Name, r.Account.Email)
+	a := database.NewAccount(r.Account.Name, r.Account.Email, r.Account.Images)
 	err := as.DB.Create(&a, r.Password)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (as AccountServer) Update(ctx context.Context, r *account.UpdateAccountRequ
 		return nil, ErrNoAccount
 	}
 
-	a := database.NewAccount(r.Account.Name, r.Account.Email)
+	a := database.NewAccount(r.Account.Name, r.Account.Email, r.Account.Images)
 	a.ID = r.Id
 
 	err := as.DB.Update(&a)

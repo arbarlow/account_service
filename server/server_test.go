@@ -38,8 +38,9 @@ func createAccount(t *testing.T) *account.Account {
 	ctx := context.Background()
 	req := &account.CreateAccountRequest{
 		Account: &account.Account{
-			Name:  name,
-			Email: "alexbarlowis@localhost" + strconv.Itoa(r.Int()),
+			Name:   name,
+			Email:  "alexbarlowis@localhost" + strconv.Itoa(r.Int()),
+			Images: map[string]string{"medium": "http://example.com/1.jpeg"},
 		},
 		Password: pass,
 	}
@@ -171,6 +172,38 @@ func TestGetByIdSuccess(t *testing.T) {
 	assert.NotEmpty(t, a2.Email)
 }
 
+func TestGetByIdFail(t *testing.T) {
+	truncate(false)
+
+	u1 := uuid.NewV1()
+
+	areq := &account.GetByIdRequest{
+		Id: u1.String(),
+	}
+
+	ctx := context.Background()
+	a2, err := as.GetById(ctx, areq)
+	assert.NotNil(t, err)
+	assert.Equal(t, err, database.ErrAccountNotFound)
+	assert.Nil(t, a2)
+}
+
+func TestGetByEmailSuccess(t *testing.T) {
+	truncate(false)
+
+	ctx := context.Background()
+	a := createAccount(t)
+
+	areq := &account.GetByEmailRequest{
+		Email: a.Email,
+	}
+
+	a2, err := as.GetByEmail(ctx, areq)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, a2.Id)
+	assert.NotEmpty(t, a2.Email)
+}
+
 func TestAuthenticate(t *testing.T) {
 	truncate(false)
 
@@ -202,38 +235,6 @@ func TestAuthenticateFailure(t *testing.T) {
 	_, err := as.AuthenticateByEmail(ctx, ar)
 	assert.NotNil(t, err)
 	assert.Equal(t, err, ErrAuthFail)
-}
-
-func TestGetByIdFail(t *testing.T) {
-	truncate(false)
-
-	u1 := uuid.NewV1()
-
-	areq := &account.GetByIdRequest{
-		Id: u1.String(),
-	}
-
-	ctx := context.Background()
-	a2, err := as.GetById(ctx, areq)
-	assert.NotNil(t, err)
-	assert.Equal(t, err, database.ErrAccountNotFound)
-	assert.Nil(t, a2)
-}
-
-func TestGetByEmailSuccess(t *testing.T) {
-	truncate(false)
-
-	ctx := context.Background()
-	a := createAccount(t)
-
-	areq := &account.GetByEmailRequest{
-		Email: a.Email,
-	}
-
-	a2, err := as.GetByEmail(ctx, areq)
-	assert.Nil(t, err)
-	assert.NotEmpty(t, a2.Id)
-	assert.NotEmpty(t, a2.Email)
 }
 
 func TestUpdateSuccess(t *testing.T) {
