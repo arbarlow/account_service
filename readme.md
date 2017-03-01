@@ -1,17 +1,18 @@
-# Account Service 
+# Account Service
 
-[![wercker status](https://app.wercker.com/status/9dad41bd24267b293467b812647f5d37/s/master "wercker status")](https://app.wercker.com/project/byKey/9dad41bd24267b293467b812647f5d37) [![Go Report Card](https://goreportcard.com/badge/github.com/lileio/account_service)](https://goreportcard.com/report/github.com/lileio/account_service)
+[![Build Status](https://travis-ci.org/lileio/account_service.svg?branch=master)](https://travis-ci.org/lileio/account_service)
 
 An account microservice that speaks gRPC made with the [Lile generator](https://github.com/lileio/lile), backed by PostgreSQL or Cassandra.
 
 ``` protobuf
 service AccountService {
+  rpc List (ListAccountsRequest) returns (ListAccountsResponse) {}
   rpc GetById (GetByIdRequest) returns (Account) {}
   rpc GetByEmail (GetByEmailRequest) returns (Account) {}
-  rpc AuthenticateByEmail (AuthRequest) returns (Account) {}
-  rpc Create (CreateRequest) returns (Account) {}
-  rpc Update (Account) returns (Account) {}
-  rpc Delete (DeleteRequest) returns (DeleteResponse) {}
+  rpc AuthenticateByEmail (AuthenticateByEmailRequest) returns (Account) {}
+  rpc Create (CreateAccountRequest) returns (Account) {}
+  rpc Update (UpdateAccountRequest) returns (Account) {}
+  rpc Delete (DeleteAccountRequest) returns (google.protobuf.Empty) {}
 }
 ```
 ## Details
@@ -45,12 +46,12 @@ If a new column is added or similar, on next boot the app will migrate and add t
 
 ### PostgreSQL
 
-PostgreSQL is configured using the single ENV variable `POSTGRESQL_URL` and can be a url like string e.g. 
+PostgreSQL is configured using the single ENV variable `POSTGRESQL_URL` and can be a url like string e.g.
 
 `POSTGRESQL_URL="postgres://host/database"`
- 
+
  Account service uses UUID's as primary key and a single table with the following schema:
- 
+
  ``` sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS accounts (
