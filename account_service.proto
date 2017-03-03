@@ -1,13 +1,15 @@
 syntax = "proto3";
+option go_package = "github.com/lileio/account_service";
 import "google/protobuf/empty.proto";
+import "image_service.proto";
 
-package account;
+package account_service;
 
 message Account {
   string id = 1;
   string name = 2;
   string email = 3;
-  map<string, string> images = 4;
+  map<string, image_service.Image> images = 4;
 }
 
 message ListAccountsRequest {
@@ -36,11 +38,14 @@ message AuthenticateByEmailRequest {
 message CreateAccountRequest {
   Account account = 1;
   string password = 2;
+  image_service.ImageStoreRequest image = 3;
 }
 
 message UpdateAccountRequest {
   string id = 1;
-  Account account = 2;
+  string password = 2;
+  image_service.ImageStoreRequest image = 3;
+  Account account = 4;
 }
 
 message DeleteAccountRequest {

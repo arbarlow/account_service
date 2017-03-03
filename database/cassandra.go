@@ -8,14 +8,14 @@ import (
 
 	_ "github.com/gemnasium/migrate/driver/cassandra"
 	"github.com/gemnasium/migrate/migrate"
-	"github.com/gocassa/gocassa"
 	"github.com/gocql/gocql"
+	"github.com/relops/cqlr"
 	uuid "github.com/satori/go.uuid"
 )
 
 type emailIDMap struct {
-	Email string
-	ID    string
+	Email string `cql:"email"`
+	ID    string `cql:"id"`
 }
 
 type Cassandra struct {
@@ -24,10 +24,7 @@ type Cassandra struct {
 	keyspace string
 	addrs    []string
 
-	Session               *gocql.Session
-	AccountsIDSimpleTable gocassa.Table
-	AccountsIDTable       gocassa.MapTable
-	AccountsEmailTable    gocassa.MapTable
+	Session *gocql.Session
 }
 
 var Consistency *gocql.Consistency
@@ -45,36 +42,16 @@ func (c *Cassandra) Connect(keyspace string, addrs []string) error {
 
 	c.Session = session
 
+	return nil
+}
+
+func (c *Cassandra) Migrate() error {
 	wd := os.ExpandEnv("$GOPATH/src/github.com/lileio/account_service")
-	allErrors, ok := migrate.UpSync("cassandra://"+addrs[0]+"/"+keyspace+"?disable_init_host_lookup", wd+"/migrations/cassandra")
+	errs, ok := migrate.UpSync("cassandra://"+c.addrs[0]+"/"+c.keyspace+"?disable_init_host_lookup", wd+"/migrations/cassandra")
 	if !ok {
-		fmt.Printf("allErrors = %+v\n", allErrors)
+		fmt.Printf("migrations failed: %+v\n", errs)
 		return errors.New("migration error")
 	}
-
-	conn := gocassa.NewConnection(gocassa.GoCQLSessionToQueryExecutor(session))
-
-	opts := gocassa.Options{
-		Consistency: Consistency,
-	}
-
-	c.AccountsIDTable = conn.KeySpace(keyspace).MapTable(
-		"accounts",
-		"ID",
-		&Account{},
-	).WithOptions(opts)
-
-	c.AccountsIDSimpleTable = conn.KeySpace(keyspace).Table("accounts", &Account{}, gocassa.Keys{
-		PartitionKeys: []string{"Id"},
-	}).WithOptions(gocassa.Options{
-		TableName: c.AccountsIDTable.Name(),
-	}.Merge(opts))
-
-	c.AccountsEmailTable = conn.KeySpace(keyspace).MapTable(
-		"accounts",
-		"Email",
-		&emailIDMap{},
-	).WithOptions(opts)
 
 	return nil
 }
@@ -85,19 +62,21 @@ func (c *Cassandra) Close() error {
 }
 
 func (c *Cassandra) Truncate() error {
-	c.Session.Query("truncate table accounts_map_id").Exec()
-	c.Session.Query("truncate table accounts_map_email").Exec()
 	return nil
 }
 
-func (c *Cassandra) List(count int32, token string) (accounts []*Account, next_token string, err error) {
+func (c *Cassandra) List(
+	count int32, token string) (
+	accounts []*Account, next_token string, err error) {
 	if token == "" {
 		token = "0"
 	}
 
 	rows := c.Session.Query(
-		"select id,name,email,createdat from accounts_map_id where token(id) > token(?) limit ?",
-		token, count).Iter().Scanner()
+		`select id, name, email, images, createdat from accounts_map_id
+		 where token(id) > token(?) limit ?`,
+		token, count,
+	).Iter().Scanner()
 
 	if rows == nil {
 		return accounts, next_token, err
@@ -105,7 +84,7 @@ func (c *Cassandra) List(count int32, token string) (accounts []*Account, next_t
 
 	for rows.Next() {
 		a := &Account{}
-		err := rows.Scan(&a.ID, &a.Name, &a.Email, &a.CreatedAt)
+		err := rows.Scan(&a.ID, &a.Name, &a.Email, &a.Images, &a.CreatedAt)
 		if err != nil {
 			return accounts, next_token, err
 		}
@@ -151,7 +130,18 @@ func (c *Cassandra) Create(a *Account, password string) error {
 		return err
 	}
 
-	err = c.AccountsIDTable.Set(a).Run()
+	q := `INSERT INTO accounts_map_id
+	(id, name, email, hashedpassword, images, createdat)
+	VALUES (?, ?, ?, ?, ?, ?)`
+	err = c.Session.Query(
+		q,
+		a.ID,
+		a.Name,
+		a.Email,
+		a.HashedPassword,
+		a.Images,
+		a.CreatedAt).Exec()
+
 	if err != nil {
 		return err
 	}
@@ -160,11 +150,13 @@ func (c *Cassandra) Create(a *Account, password string) error {
 }
 
 func (c *Cassandra) ReadByEmail(email string) (*Account, error) {
-	a := &Account{}
-	err := c.AccountsEmailTable.Read(email, a).Run()
+	e := &emailIDMap{}
+	cql := `select email,id from accounts_map_email where email = ?`
+	b := cqlr.BindQuery(c.Session.Query(cql, email))
+	b.Scan(e)
+	err := b.Close()
 
-	switch err.(type) {
-	case gocassa.RowNotFoundError:
+	if e.ID == "" {
 		return nil, ErrAccountNotFound
 	}
 
@@ -172,7 +164,7 @@ func (c *Cassandra) ReadByEmail(email string) (*Account, error) {
 		return nil, err
 	}
 
-	a, err = c.ReadByID(a.ID)
+	a, err := c.ReadByID(e.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +174,12 @@ func (c *Cassandra) ReadByEmail(email string) (*Account, error) {
 
 func (c *Cassandra) ReadByID(ID string) (*Account, error) {
 	a := Account{}
-	err := c.AccountsIDTable.Read(ID, &a).Run()
+	q := c.Session.Query(`select * from accounts_map_id where id = ?`, ID)
+	b := cqlr.BindQuery(q)
+	b.Scan(&a)
+	err := b.Close()
 
-	switch err.(type) {
-	case gocassa.RowNotFoundError:
+	if a.ID == "" {
 		return nil, ErrAccountNotFound
 	}
 
@@ -203,9 +197,9 @@ func (c *Cassandra) Update(a *Account) error {
 	}
 
 	if current.Email != a.Email {
-		err = c.AccountsEmailTable.Delete(current.Email).Run()
+		err = c.deleteEmailRow(a)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		err = c.createEmailRow(a)
@@ -214,7 +208,10 @@ func (c *Cassandra) Update(a *Account) error {
 		}
 	}
 
-	return c.AccountsIDTable.Update(a.ID, a.ToMap()).Run()
+	b := cqlr.Bind(`
+		update accounts_map_id set
+		name = ?, email = ?, images = ? where id = ?`, a)
+	return b.Exec(c.Session)
 }
 
 func (c *Cassandra) Delete(ID string) error {
@@ -223,18 +220,27 @@ func (c *Cassandra) Delete(ID string) error {
 		return err
 	}
 
-	err = c.AccountsIDTable.Delete(ID).Run()
+	b := cqlr.Bind(`delete from accounts_map_id where id = ?`, a)
+	err = b.Exec(c.Session)
 	if err != nil {
 		return err
 	}
 
-	return c.AccountsEmailTable.Delete(a.Email).Run()
+	err = c.deleteEmailRow(a)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Cassandra) createEmailRow(a *Account) error {
-	ea := emailIDMap{
-		Email: a.Email,
-		ID:    a.ID,
-	}
-	return c.AccountsEmailTable.Set(&ea).Run()
+	cql := `insert into accounts_map_email (email, id) values (?, ?)`
+	b := cqlr.Bind(cql, a)
+	return b.Exec(c.Session)
+}
+
+func (c *Cassandra) deleteEmailRow(a *Account) error {
+	b := cqlr.Bind(`delete from accounts_map_email where email = ?`, a)
+	return b.Exec(c.Session)
 }

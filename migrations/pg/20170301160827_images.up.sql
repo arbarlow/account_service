@@ -1,3 +1,1 @@
-CREATE EXTENSION IF NOT EXISTS "hstore";
-
-ALTER TABLE accounts ADD COLUMN images hstore;
+ALTER TABLE accounts ADD COLUMN images text;

@@ -12,4 +12,3 @@ services:
     image: cassandra
     ports:
       - 9042:9042
-

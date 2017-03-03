@@ -15,10 +15,12 @@ import (
 
 type PostgreSQL struct {
 	Database
-	db *pg.DB
+	db   *pg.DB
+	conn string
 }
 
 func (p *PostgreSQL) Connect(conn string) error {
+	p.conn = conn
 	opts, err := pg.ParseURL(conn)
 	if err != nil {
 		return err
@@ -26,10 +28,14 @@ func (p *PostgreSQL) Connect(conn string) error {
 
 	p.db = pg.Connect(opts)
 
+	return nil
+}
+
+func (p *PostgreSQL) Migrate() error {
 	wd := os.ExpandEnv("$GOPATH/src/github.com/lileio/account_service")
-	allErrors, ok := migrate.UpSync(conn, wd+"/migrations/pg")
+	allErrors, ok := migrate.UpSync(p.conn, wd+"/migrations/pg")
 	if !ok {
-		fmt.Printf("allErrors = %+v\n", allErrors)
+		fmt.Printf("migration failed: %+v\n", allErrors)
 		return errors.New("migration error")
 	}
 

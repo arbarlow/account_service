@@ -9,13 +9,13 @@ import (
 )
 
 func TestValid(t *testing.T) {
-	a := NewAccount("Alex", "email@google.com", map[string]string{})
+	a := Account{Name: "Alex", Email: "email@google.com"}
 	err := a.Valid()
 	assert.Nil(t, err)
 }
 
 func TestNotValid(t *testing.T) {
-	a := NewAccount("", "", map[string]string{})
+	a := Account{}
 	err := a.Valid()
 	assert.NotNil(t, err)
 	assert.Equal(t, len(err.(validator.ValidationErrors)), 2)

@@ -1,10 +1,14 @@
 package database
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/gocql/gocql"
+	"github.com/lileio/image_service/image_service"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -12,7 +16,8 @@ import (
 )
 
 var (
-	validate           = validator.New()
+	validate = validator.New()
+
 	ErrAccountNotFound = errors.New("account not found")
 	ErrEmailExists     = errors.New("email already exists")
 	ErrNoDatabase      = errors.New("no database connection details")
@@ -26,25 +31,28 @@ type Database interface {
 	Create(a *Account, password string) error
 	Update(a *Account) error
 	Delete(ID string) error
+	Migrate() error
 	Truncate() error
 	Close() error
 }
 
+type Images []*image_service.Image
+
 type Account struct {
-	ID             string            `db:"id"`
-	Name           string            `validate:"required"`
-	Email          string            `validate:"required"`
-	HashedPassword string            `db:"hashed_password"`
-	CreatedAt      time.Time         `db:"created_at"`
-	Images         map[string]string `pg:",hstore"`
+	ID             string    `db:"id"`
+	Name           string    `validate:"required"`
+	Email          string    `validate:"required"`
+	HashedPassword string    `db:"hashed_password"`
+	CreatedAt      time.Time `db:"created_at"`
+	Images         Images
 }
 
-func NewAccount(name, email string, images map[string]string) Account {
-	return Account{
-		Name:   name,
-		Email:  email,
-		Images: images,
-	}
+func (i Images) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
+	return json.Marshal(i)
+}
+
+func (i *Images) UnmarshalCQL(info gocql.TypeInfo, data []byte) error {
+	return json.Unmarshal(data, i)
 }
 
 func (a *Account) Valid() error {

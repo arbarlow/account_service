@@ -1,27 +1,54 @@
 package server
 
 import (
-	"context"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/gocql/gocql"
+	"golang.org/x/net/context"
+
+	"google.golang.org/grpc"
+
 	_ "github.com/lib/pq"
-	"github.com/lileio/account_service/account"
+	account "github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
+	is "github.com/lileio/image_service/image_service"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 var db = setupDB()
 var as = AccountServer{}
 
+type MockImageService struct {
+	mock.Mock
+}
+
+func (m MockImageService) Store(ctx context.Context, in *is.ImageStoreRequest, opts ...grpc.CallOption) (is.ImageService_StoreClient, error) {
+	m.Called()
+	return nil, nil
+}
+
+func (m MockImageService) StoreSync(ctx context.Context, in *is.ImageStoreRequest, opts ...grpc.CallOption) (*is.ImageSyncResponse, error) {
+	m.Called()
+	return &is.ImageSyncResponse{Images: []*is.Image{
+		{Filename: in.Filename},
+	}}, nil
+}
+
+func (m MockImageService) Delete(ctx context.Context, in *is.DeleteRequest, opts ...grpc.CallOption) (*is.DeleteResponse, error) {
+	m.Called()
+	return nil, nil
+}
+
 func setupDB() database.Database {
 	conn := database.DatabaseFromEnv()
 	as.DB = conn
+	as.DB.Migrate()
 	return conn
 }
 
@@ -38,9 +65,8 @@ func createAccount(t *testing.T) *account.Account {
 	ctx := context.Background()
 	req := &account.CreateAccountRequest{
 		Account: &account.Account{
-			Name:   name,
-			Email:  "alexbarlowis@localhost" + strconv.Itoa(r.Int()),
-			Images: map[string]string{"medium": "http://example.com/1.jpeg"},
+			Name:  name,
+			Email: "alexbarlowis@localhost" + strconv.Itoa(r.Int()),
 		},
 		Password: pass,
 	}
@@ -67,11 +93,10 @@ func TestSimpleList(t *testing.T) {
 }
 
 func TestSimpleListToken(t *testing.T) {
-	a := gocql.All
-	database.Consistency = &a
 	if os.Getenv("CASSANDRA_DB_NAME") != "" {
 		t.Skip()
 	}
+
 	truncate()
 
 	acc := []*account.Account{}
@@ -96,8 +121,6 @@ func TestSimpleListToken(t *testing.T) {
 	l, err = as.List(ctx, req)
 	assert.Nil(t, err)
 	assert.Empty(t, l.NextPageToken)
-
-	database.Consistency = nil
 }
 
 func TestCreateSuccess(t *testing.T) {
@@ -105,6 +128,45 @@ func TestCreateSuccess(t *testing.T) {
 
 	account := createAccount(t)
 	assert.NotEmpty(t, account.Id)
+}
+
+func TestImageCreateDelete(t *testing.T) {
+	truncate()
+
+	ms := MockImageService{}
+	ms.On("StoreSync")
+	ms.On("Delete")
+	image_service = ms
+
+	b, err := ioutil.ReadFile("../test/pic.jpg")
+	assert.Nil(t, err)
+
+	ctx := context.Background()
+	isr := &is.ImageStoreRequest{
+		Filename: "pic.jpg",
+		Data:     b,
+	}
+
+	req := &account.CreateAccountRequest{
+		Account: &account.Account{
+			Name:  name,
+			Email: "alexbarlowis@localhost",
+		},
+		Password: pass,
+		Image:    isr,
+	}
+	ac, err := as.Create(ctx, req)
+	assert.Nil(t, err)
+	assert.NotEmpty(t, ac.Id)
+	assert.Equal(t, len(ac.Images), 1)
+
+	dr := &account.DeleteAccountRequest{
+		Id: ac.Id,
+	}
+	_, err = as.Delete(ctx, dr)
+	assert.Nil(t, err)
+
+	ms.AssertExpectations(t)
 }
 
 func BenchmarkCreate(b *testing.B) {

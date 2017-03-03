@@ -1,1 +1,1 @@
-ALTER TABLE accounts DELETE COLUMN images hstore;
+ALTER TABLE accounts DELETE COLUMN images;
