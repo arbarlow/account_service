@@ -84,12 +84,9 @@ func (c *Cassandra) Close() error {
 	return nil
 }
 
-func (c *Cassandra) Truncate(reconnect bool) error {
+func (c *Cassandra) Truncate() error {
 	c.Session.Query("truncate table accounts_map_id").Exec()
 	c.Session.Query("truncate table accounts_map_email").Exec()
-	if reconnect {
-		c.Connect(c.keyspace, c.addrs)
-	}
 	return nil
 }
 

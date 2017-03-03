@@ -25,8 +25,8 @@ func setupDB() database.Database {
 	return conn
 }
 
-func truncate(reconnect bool) {
-	db.Truncate(reconnect)
+func truncate() {
+	db.Truncate()
 }
 
 var name = "Alex B"
@@ -50,7 +50,7 @@ func createAccount(t *testing.T) *account.Account {
 }
 
 func TestSimpleList(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	for i := 0; i < 5; i++ {
 		createAccount(t)
@@ -72,7 +72,7 @@ func TestSimpleListToken(t *testing.T) {
 	if os.Getenv("CASSANDRA_DB_NAME") != "" {
 		t.Skip()
 	}
-	truncate(true)
+	truncate()
 
 	acc := []*account.Account{}
 	for i := 0; i < 4; i++ {
@@ -101,14 +101,14 @@ func TestSimpleListToken(t *testing.T) {
 }
 
 func TestCreateSuccess(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	account := createAccount(t)
 	assert.NotEmpty(t, account.Id)
 }
 
 func BenchmarkCreate(b *testing.B) {
-	truncate(false)
+	truncate()
 
 	for i := 0; i < b.N; i++ {
 		ctx := context.Background()
@@ -129,7 +129,7 @@ func BenchmarkCreate(b *testing.B) {
 }
 
 func TestCreateUniqueness(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	a1 := createAccount(t)
@@ -146,7 +146,7 @@ func TestCreateUniqueness(t *testing.T) {
 }
 
 func TestCreateEmpty(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	req := &account.CreateAccountRequest{}
@@ -157,7 +157,7 @@ func TestCreateEmpty(t *testing.T) {
 }
 
 func TestGetByIdSuccess(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	a := createAccount(t)
@@ -173,7 +173,7 @@ func TestGetByIdSuccess(t *testing.T) {
 }
 
 func TestGetByIdFail(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	u1 := uuid.NewV1()
 
@@ -189,7 +189,7 @@ func TestGetByIdFail(t *testing.T) {
 }
 
 func TestGetByEmailSuccess(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	a := createAccount(t)
@@ -205,7 +205,7 @@ func TestGetByEmailSuccess(t *testing.T) {
 }
 
 func TestAuthenticate(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	a := createAccount(t)
@@ -222,7 +222,7 @@ func TestAuthenticate(t *testing.T) {
 }
 
 func TestAuthenticateFailure(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	a := createAccount(t)
@@ -238,7 +238,7 @@ func TestAuthenticateFailure(t *testing.T) {
 }
 
 func TestUpdateSuccess(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	a := createAccount(t)
@@ -262,7 +262,7 @@ func TestUpdateSuccess(t *testing.T) {
 }
 
 func TestUpdateNotExist(t *testing.T) {
-	truncate(false)
+	truncate()
 	ctx := context.Background()
 	u1 := uuid.NewV1()
 
@@ -276,7 +276,7 @@ func TestUpdateNotExist(t *testing.T) {
 }
 
 func TestDeleteSuccess(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	a := createAccount(t)
@@ -288,7 +288,7 @@ func TestDeleteSuccess(t *testing.T) {
 }
 
 func TestDeleteAccountNotExist(t *testing.T) {
-	truncate(false)
+	truncate()
 
 	ctx := context.Background()
 	u1 := uuid.NewV1()

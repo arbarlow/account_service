@@ -26,7 +26,7 @@ type Database interface {
 	Create(a *Account, password string) error
 	Update(a *Account) error
 	Delete(ID string) error
-	Truncate(reconnect bool) error
+	Truncate() error
 	Close() error
 }
 
