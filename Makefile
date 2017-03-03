@@ -8,7 +8,7 @@ test:
 	go test -v ./...
 
 benchmark:
-	go test -bench=./... -benchmem -benchtime 10s
+	go test -bench=. -benchmem -benchtime 10s ./...
 
 docker:
 	GOOS=linux CGO_ENABLED=0 go build -a -ldflags '-s' -installsuffix cgo -o account_service .
