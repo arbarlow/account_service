@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"time"
 
 	"github.com/lileio/account_service"
+	"github.com/lileio/image_service/image_service"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
@@ -34,11 +36,26 @@ var createCmd = &cobra.Command{
 
 		client := account_service.NewAccountServiceClient(conn)
 
+		var isr image_service.ImageStoreRequest
+		if image != "" {
+			b, err := ioutil.ReadFile(image)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			isr = image_service.ImageStoreRequest{
+				Filename: "image.jpg",
+				Data:     b,
+				Ops:      image_service.DefaultOps,
+			}
+		}
+
 		ar := &account_service.CreateAccountRequest{
 			Account: &account_service.Account{
 				Name:  name,
 				Email: email,
 			},
+			Image:    &isr,
 			Password: password,
 		}
 
