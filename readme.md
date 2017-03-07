@@ -71,6 +71,13 @@ Cassandra needs two ENV variables, the keyspace name and hosts to connect to (a 
 
 The Cassandra driver uses two tables so you lookup accounts by `ID` and by `Email`. See the migrations for more detailed information.
 
+### Image Service
+
+Uploading and attaching an image is supported via the lile [image_service](https://github.com/lileio/image_service/) via an Image Operation. To do so, you will need to set the `IMAGE_SERVICE_ADDR` variable. Account Service will run fine without this, but you'll need to leave the image upload `nil`.
+
+```
+IMAGE_SERVICE_ADDR="10.0.0.1:8000"
+```
 
 ## Test
 The `docker-compose.yml` file will run PostgreSQL and Cassandra for testing purposes, but you will need create the test databases yourself. Migrations are run automatically by the test suite.
