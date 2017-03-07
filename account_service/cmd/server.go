@@ -16,6 +16,11 @@ var serverCmd = &cobra.Command{
 	Short: "Run the gRPC server",
 	Run: func(cmd *cobra.Command, args []string) {
 		db := database.DatabaseFromEnv()
+		err := db.Migrate()
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		defer db.Close()
 
 		as := server.AccountServer{DB: db}
@@ -24,7 +29,7 @@ var serverCmd = &cobra.Command{
 			account_service.RegisterAccountServiceServer(g, as)
 		}
 
-		err := lile.NewServer(
+		err = lile.NewServer(
 			lile.Name("account_service"),
 			lile.Implementation(impl),
 		).ListenAndServe()
