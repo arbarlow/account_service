@@ -107,21 +107,7 @@ func (p *PostgreSQL) ReadByEmail(email string) (*Account, error) {
 }
 
 func (p *PostgreSQL) Create(a *Account, password string) error {
-	err := a.Valid()
-	if err != nil {
-		return err
-	}
-
-	if password == "" {
-		return ErrNoPasswordGiven
-	}
-
-	err = a.hashPassword(password)
-	if err != nil {
-		return err
-	}
-
-	err = p.db.Insert(&a)
+	err := p.db.Insert(&a)
 	if err != nil && uniqueEmailError(err) {
 		return ErrEmailExists
 	}

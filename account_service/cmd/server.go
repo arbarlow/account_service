@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"log"
-
+	"github.com/Sirupsen/logrus"
 	"github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
 	"github.com/lileio/account_service/server"
@@ -18,7 +17,7 @@ var serverCmd = &cobra.Command{
 		db := database.DatabaseFromEnv()
 		err := db.Migrate()
 		if err != nil {
-			log.Fatal(err)
+			logrus.Fatal(err)
 		}
 
 		defer db.Close()
@@ -34,7 +33,7 @@ var serverCmd = &cobra.Command{
 			lile.Implementation(impl),
 		).ListenAndServe()
 
-		log.Fatal(err)
+		logrus.Fatal(err)
 	},
 }
 

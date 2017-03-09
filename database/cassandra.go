@@ -103,37 +103,13 @@ func (c *Cassandra) List(
 }
 
 func (c *Cassandra) Create(a *Account, password string) error {
-	// Check the email table to see if this account exists
-	ae, err := c.ReadByEmail(a.Email)
-	if err != nil && err != ErrAccountNotFound {
-		return err
-	}
-
-	if ae != nil {
-		return ErrEmailExists
-	}
-
 	a.ID = uuid.NewV1().String()
 	a.CreatedAt = time.Now()
-
-	err = a.Valid()
-	if err != nil {
-		return err
-	}
-
-	if password == "" {
-		return ErrNoPasswordGiven
-	}
-
-	err = a.hashPassword(password)
-	if err != nil {
-		return err
-	}
 
 	q := `INSERT INTO accounts_map_id
 	(id, name, email, hashedpassword, images, createdat)
 	VALUES (?, ?, ?, ?, ?, ?)`
-	err = c.Session.Query(
+	err := c.Session.Query(
 		q,
 		a.ID,
 		a.Name,

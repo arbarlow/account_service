@@ -47,14 +47,6 @@ type Account struct {
 	Images         Images
 }
 
-func (i Images) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
-	return json.Marshal(i)
-}
-
-func (i *Images) UnmarshalCQL(info gocql.TypeInfo, data []byte) error {
-	return json.Unmarshal(data, i)
-}
-
 func (a *Account) Valid() error {
 	return validate.Struct(a)
 }
@@ -67,7 +59,11 @@ func (a *Account) ToMap() map[string]interface{} {
 	}
 }
 
-func (a *Account) hashPassword(password string) error {
+func (a *Account) HashPassword(password string) error {
+	if password == "" {
+		return ErrNoPasswordGiven
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -80,6 +76,27 @@ func (a *Account) hashPassword(password string) error {
 
 func (a *Account) ComparePasswordToHash(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(a.HashedPassword), []byte(password))
+}
+
+func (i Images) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
+	return json.Marshal(i)
+}
+
+func (i *Images) UnmarshalCQL(info gocql.TypeInfo, data []byte) error {
+	return json.Unmarshal(data, i)
+}
+
+func EmailExists(db Database, a *Account) error {
+	a, err := db.ReadByEmail(a.Email)
+	if err != nil && err != ErrAccountNotFound {
+		return err
+	}
+
+	if a != nil {
+		return ErrEmailExists
+	}
+
+	return nil
 }
 
 func DatabaseFromEnv() Database {
