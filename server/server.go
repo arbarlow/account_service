@@ -10,9 +10,11 @@ import (
 	context "golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	account "github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
 	is "github.com/lileio/image_service/image_service"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 type AccountServer struct {
@@ -77,10 +79,13 @@ func imageService() is.ImageServiceClient {
 		return image_service
 	}
 
+	t := opentracing.GlobalTracer()
+
 	conn, err := grpc.Dial(
 		os.Getenv("IMAGE_SERVICE_ADDR"),
 		grpc.WithInsecure(),
 		grpc.WithTimeout(1*time.Second),
+		grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t)),
 	)
 	if err != nil {
 		logrus.Warnf("Image service error: %s", err)
