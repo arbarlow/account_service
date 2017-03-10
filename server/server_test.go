@@ -15,7 +15,7 @@ import (
 	_ "github.com/lib/pq"
 	account "github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
-	is "github.com/lileio/image_service/image_service"
+	is "github.com/lileio/image_service"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

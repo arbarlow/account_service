@@ -8,7 +8,7 @@ import (
 	"log"
 
 	"github.com/lileio/account_service"
-	"github.com/lileio/image_service/image_service"
+	"github.com/lileio/image_service"
 	"github.com/spf13/cobra"
 )
 

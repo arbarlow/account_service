@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
-	"github.com/lileio/image_service/image_service"
+	"github.com/lileio/image_service"
 
 	"golang.org/x/crypto/bcrypt"
 

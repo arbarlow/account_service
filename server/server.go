@@ -13,7 +13,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	account "github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
-	is "github.com/lileio/image_service/image_service"
+	is "github.com/lileio/image_service"
 	opentracing "github.com/opentracing/opentracing-go"
 )
 
