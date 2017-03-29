@@ -1,20 +1,20 @@
 package server
 
 import (
-	"errors"
 	"os"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	context "golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	account "github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
-	is "github.com/lileio/image_service"
+	"github.com/lileio/image_service"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/sirupsen/logrus"
 )
 
 type AccountServer struct {
@@ -23,29 +23,31 @@ type AccountServer struct {
 }
 
 var (
-	ErrAuthFail  = errors.New("email or password incorrect")
-	ErrNoAccount = errors.New("no account details provided")
+	is image_service.ImageServiceClient
 
-	image_service is.ImageServiceClient
+	ErrNoAccount = grpc.Errorf(codes.InvalidArgument, "account is nil")
 )
 
 func accountDetailsFromAccount(a *database.Account) *account.Account {
-	imgs := map[string]*is.Image{}
+	imgs := map[string]*image_service.Image{}
 	for _, i := range a.Images {
 		imgs[i.VersionName] = i
 	}
 
 	return &account.Account{
-		Id:     a.ID,
-		Name:   a.Name,
-		Email:  a.Email,
-		Images: imgs,
+		Id:                 a.ID,
+		Name:               a.Name,
+		Email:              a.Email,
+		Images:             imgs,
+		Metadata:           a.Metadata,
+		ConfirmToken:       a.ConfirmationToken,
+		PasswordResetToken: a.PasswordResetToken,
 	}
 }
 
 func (as AccountServer) storeImage(
 	ctx context.Context,
-	img *is.ImageStoreRequest,
+	img *image_service.ImageStoreRequest,
 	a *database.Account) error {
 
 	// Delete previous images if present
@@ -64,7 +66,7 @@ func (as AccountServer) storeImage(
 
 func (as AccountServer) deleteImages(ctx context.Context, a *database.Account) error {
 	for _, i := range a.Images {
-		dr := is.DeleteRequest{Filename: i.Filename}
+		dr := image_service.DeleteRequest{Filename: i.Filename}
 		_, err := imageService().Delete(ctx, &dr)
 		if err != nil {
 			return err
@@ -74,9 +76,9 @@ func (as AccountServer) deleteImages(ctx context.Context, a *database.Account) e
 	return nil
 }
 
-func imageService() is.ImageServiceClient {
-	if image_service != nil {
-		return image_service
+func imageService() image_service.ImageServiceClient {
+	if is != nil {
+		return is
 	}
 
 	t := opentracing.GlobalTracer()
@@ -88,8 +90,10 @@ func imageService() is.ImageServiceClient {
 		grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t)),
 	)
 	if err != nil {
-		logrus.Warnf("Image service error: %s", err)
+		logrus.Warnf("image service connection error: %s", err)
 	}
 
-	return is.NewImageServiceClient(conn)
+	is = image_service.NewImageServiceClient(conn)
+	return is
+
 }

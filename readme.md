@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/lileio/account_service.svg?branch=master)](https://travis-ci.org/lileio/account_service) [![GoDoc](https://godoc.org/github.com/lileio/account_service?status.svg)](https://godoc.org/github.com/lileio/account_service)
 
-An account microservice that speaks gRPC made with the [Lile generator](https://github.com/lileio/lile), backed by PostgreSQL or Cassandra.
+An account microservice that speaks gRPC made with the [Lile generator](https://github.com/lileio/lile), backed by PostgreSQL.
 
 ``` protobuf
 service AccountService {
@@ -10,6 +10,9 @@ service AccountService {
   rpc GetById (GetByIdRequest) returns (Account) {}
   rpc GetByEmail (GetByEmailRequest) returns (Account) {}
   rpc AuthenticateByEmail (AuthenticateByEmailRequest) returns (Account) {}
+  rpc GeneratePasswordToken (GeneratePasswordTokenRequest) returns (GeneratePasswordTokenResponse) {}
+  rpc ResetPassword (ResetPasswordRequest) returns (Account) {}
+  rpc ConfirmAccount (ConfirmAccountRequest) returns (Account) {}
   rpc Create (CreateAccountRequest) returns (Account) {}
   rpc Update (UpdateAccountRequest) returns (Account) {}
   rpc Delete (DeleteAccountRequest) returns (google.protobuf.Empty) {}
@@ -45,9 +48,10 @@ Usage:
 Available Commands:
   migrate     Run database migrations
   server      Run the gRPC server
+  client      Interact with a running server
 ```
 
-## Setup
+## Environment Setup
 
 Setup is configured via environment variables, depending on the database chosen.
 
@@ -60,16 +64,6 @@ PostgreSQL is configured using the single ENV variable `POSTGRESQL_URL` and can 
 `POSTGRESQL_URL="postgres://host/database"`
 
 The PostgreSQL driver uses UUID's as primary key and a single table.
-
-### Cassandra
-
-Cassandra needs two ENV variables, the keyspace name and hosts to connect to (a comma seperated list):
-
-`CASSANDRA_DB_NAME="account_service"`
-
-`CASSANDRA_HOSTS="10.0.0.1,10.0.0.2"`
-
-The Cassandra driver uses two tables so you lookup accounts by `ID` and by `Email`. See the migrations for more detailed information.
 
 ### Image Service
 
@@ -87,10 +81,3 @@ For PostgreSQL (using psql):
 ``` sql
 CREATE DATABASE account_service_test;
 ```
-
-For Cassanda:
-
-``` sql
-create keyspace account_service WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
-```
-

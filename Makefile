@@ -1,9 +1,10 @@
 proto:
-	protoc -I ../image_service -I . account_service.proto --go_out=plugins=grpc:$$GOPATH/src
+	protoc -I $$GOPATH/src/ -I . account_service.proto --lile-server_out=. --go_out=plugins=grpc:$$GOPATH/src
 
 run:
-	@go run account_service/main.go
+	go run account_service/main.go
 
+.PHONY: test
 test:
 	go test -v ./...
 
@@ -12,5 +13,6 @@ benchmark:
 
 docker:
 	GOOS=linux CGO_ENABLED=0 go build -a -ldflags '-s' -installsuffix cgo -o build/account_service ./account_service
-	docker build . -t lileio/account_service:latest
+	docker build . -t lileio/account_service:`git rev-parse --short HEAD`
+	@echo lileio/account_service:`git rev-parse --short HEAD`
 

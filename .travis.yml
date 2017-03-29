@@ -17,7 +17,6 @@ before_script:
 script:
   - go get -t ./...
   - POSTGRESQL_URL="postgres://postgres@localhost:9043/account_service_test?sslmode=disable" go test ./... -v
-  - CASSANDRA_DB_NAME="account_service_test" CASSANDRA_HOSTS="localhost" go test ./... -v
 
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then

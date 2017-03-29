@@ -6,12 +6,29 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	pg "gopkg.in/pg.v5"
+	"time"
 
 	_ "github.com/gemnasium/migrate/driver/postgres"
 	"github.com/gemnasium/migrate/migrate"
+	"github.com/go-pg/pg"
+	"github.com/go-pg/pg/orm"
+	"github.com/sirupsen/logrus"
 )
+
+var TOKEN_LENGTH = 32
+
+func (a *Account) BeforeInsert(db orm.DB) error {
+	if a.ConfirmationToken == "" {
+		t, err := GenerateRandomString(TOKEN_LENGTH)
+		if err != nil {
+			logrus.Errorf("confirm token generation error %v", err)
+			return err
+		}
+
+		a.ConfirmationToken = t
+	}
+	return nil
+}
 
 type PostgreSQL struct {
 	Database
@@ -27,6 +44,15 @@ func (p *PostgreSQL) Connect(conn string) error {
 	}
 
 	p.db = pg.Connect(opts)
+
+	p.db.OnQueryProcessed(func(event *pg.QueryProcessedEvent) {
+		query, err := event.FormattedQuery()
+		if err != nil {
+			panic(err)
+		}
+
+		logrus.Debugf("SQL[%s]: %s", time.Since(event.StartTime), query)
+	})
 
 	return nil
 }
@@ -62,7 +88,8 @@ func (p *PostgreSQL) List(count32 int32, token string) (accounts []*Account, nex
 		return accounts, next_token, err
 	}
 
-	err = p.db.Model(&Account{}).Column("account.*").
+	err = p.db.Model(&Account{}).
+		Column("account.*").
 		Limit(count).
 		Offset(offset).
 		Select(&accounts)
@@ -142,6 +169,71 @@ func (p *PostgreSQL) Update(a *Account) error {
 	}
 
 	return nil
+}
+
+func (p *PostgreSQL) GeneratePasswordToken(email string) (*Account, error) {
+	a, err := p.ReadByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := GenerateRandomString(TOKEN_LENGTH)
+	if err != nil {
+		logrus.Errorf("password token generation error %v", err)
+		return nil, err
+	}
+
+	a.PasswordResetToken = t
+	err = p.db.Update(a)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
+}
+
+func (p *PostgreSQL) UpdatePassword(token, hashed_password string) (*Account, error) {
+	var a Account
+	err := p.db.Model(&a).
+		Where("password_reset_token = ?", token).
+		Select()
+	if err != nil && notFoundError(err) {
+		return nil, ErrAccountNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	a.HashedPassword = hashed_password
+	err = p.db.Update(&a)
+	if err != nil {
+		return nil, err
+	}
+
+	return &a, nil
+}
+
+func (p *PostgreSQL) Confirm(token string) (*Account, error) {
+	var a Account
+	err := p.db.Model(&a).
+		Where("confirmation_token = ?", token).
+		Select()
+	if err != nil && notFoundError(err) {
+		return nil, ErrAccountNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	a.ConfirmationToken = ""
+	err = p.db.Update(&a)
+	if err != nil {
+		return nil, err
+	}
+
+	return &a, nil
 }
 
 func (p *PostgreSQL) Delete(ID string) error {

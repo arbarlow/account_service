@@ -5,6 +5,8 @@ import (
 	"github.com/lileio/account_service/database"
 	"github.com/pkg/errors"
 	context "golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 func (as AccountServer) Create(ctx context.Context, r *account_service.CreateAccountRequest) (*account_service.Account, error) {
@@ -13,8 +15,9 @@ func (as AccountServer) Create(ctx context.Context, r *account_service.CreateAcc
 	}
 
 	a := database.Account{
-		Name:  r.Account.Name,
-		Email: r.Account.Email,
+		Name:     r.Account.Name,
+		Email:    r.Account.Email,
+		Metadata: r.Account.Metadata,
 	}
 
 	err := a.Valid()
@@ -24,7 +27,7 @@ func (as AccountServer) Create(ctx context.Context, r *account_service.CreateAcc
 
 	err = database.EmailExists(as.DB, &a)
 	if err != nil {
-		return nil, err
+		return nil, grpc.Errorf(codes.AlreadyExists, err.Error())
 	}
 
 	err = a.HashPassword(r.Password)

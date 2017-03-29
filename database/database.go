@@ -1,13 +1,10 @@
 package database
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/gocql/gocql"
 	"github.com/lileio/image_service"
 
 	"golang.org/x/crypto/bcrypt"
@@ -31,32 +28,28 @@ type Database interface {
 	Create(a *Account, password string) error
 	Update(a *Account) error
 	Delete(ID string) error
+	Confirm(token string) (*Account, error)
+	GeneratePasswordToken(email string) (*Account, error)
+	UpdatePassword(string, string) (*Account, error)
 	Migrate() error
 	Truncate() error
 	Close() error
 }
 
-type Images []*image_service.Image
-
 type Account struct {
-	ID             string    `db:"id"`
-	Name           string    `validate:"required"`
-	Email          string    `validate:"required"`
-	HashedPassword string    `db:"hashed_password"`
-	CreatedAt      time.Time `db:"created_at"`
-	Images         Images
+	ID                 string `db:"id"`
+	Name               string `validate:"required"`
+	Email              string `validate:"required"`
+	HashedPassword     string `db:"hashed_password"`
+	ConfirmationToken  string
+	PasswordResetToken string
+	Images             []*image_service.Image
+	Metadata           map[string]string
+	CreatedAt          time.Time `db:"created_at"`
 }
 
 func (a *Account) Valid() error {
 	return validate.Struct(a)
-}
-
-func (a *Account) ToMap() map[string]interface{} {
-	return map[string]interface{}{
-		"Name":   a.Name,
-		"Email":  a.Email,
-		"Images": a.Images,
-	}
 }
 
 func (a *Account) HashPassword(password string) error {
@@ -76,14 +69,6 @@ func (a *Account) HashPassword(password string) error {
 
 func (a *Account) ComparePasswordToHash(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(a.HashedPassword), []byte(password))
-}
-
-func (i Images) MarshalCQL(info gocql.TypeInfo) ([]byte, error) {
-	return json.Marshal(i)
-}
-
-func (i *Images) UnmarshalCQL(info gocql.TypeInfo, data []byte) error {
-	return json.Unmarshal(data, i)
 }
 
 func EmailExists(db Database, a *Account) error {
@@ -108,15 +93,6 @@ func DatabaseFromEnv() Database {
 		pgConn := &PostgreSQL{}
 		err = pgConn.Connect(pg)
 		conn = pgConn
-	}
-
-	cass := os.Getenv("CASSANDRA_DB_NAME")
-	if cass != "" {
-		hosts := strings.Split(os.Getenv("CASSANDRA_HOSTS"), ",")
-
-		cassConn := &Cassandra{}
-		err = cassConn.Connect(cass, hosts)
-		conn = cassConn
 	}
 
 	if conn == nil {
