@@ -9,12 +9,12 @@ import (
 
 	context "golang.org/x/net/context"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	account "github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
 	is "github.com/lileio/image_service"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/sirupsen/logrus"
 )
 
 type AccountServer struct {

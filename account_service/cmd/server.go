@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"github.com/Sirupsen/logrus"
 	"github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
 	"github.com/lileio/account_service/server"
+	"github.com/lileio/account_service/subscribers"
 	"github.com/lileio/lile"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
@@ -17,18 +18,23 @@ var serverCmd = &cobra.Command{
 		db := database.DatabaseFromEnv()
 		defer db.Close()
 
-		as := server.AccountServer{DB: db}
+		asub := subscribers.AccountServiceSubscribers{DB: db}
 
+		as := server.AccountServer{DB: db}
 		impl := func(g *grpc.Server) {
 			account_service.RegisterAccountServiceServer(g, as)
 		}
 
-		err := lile.NewServer(
+		s := lile.NewServer(
 			lile.Name("account_service"),
 			lile.Implementation(impl),
-		).ListenAndServe()
+			lile.Publishers(map[string]string{
+				"Create": "account_service.created",
+			}),
+			lile.Subscriber(&asub),
+		)
 
-		logrus.Fatal(err)
+		logrus.Fatal(s.ListenAndServe())
 	},
 }
 

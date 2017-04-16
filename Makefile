@@ -1,9 +1,10 @@
 proto:
-	protoc -I ../image_service -I . account_service.proto --go_out=plugins=grpc:$$GOPATH/src
+	protoc -I ../image_service -I . account_service.proto --go_out=plugins=grpc,lile-server:$$GOPATH/src
 
 run:
 	@go run account_service/main.go
 
+.PHONY: test
 test:
 	go test -v ./...
 
