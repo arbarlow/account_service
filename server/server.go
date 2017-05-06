@@ -13,6 +13,7 @@ import (
 	account "github.com/lileio/account_service"
 	"github.com/lileio/account_service/database"
 	"github.com/lileio/image_service"
+	"github.com/lileio/lile"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 )
@@ -27,6 +28,31 @@ var (
 
 	ErrNoAccount = grpc.Errorf(codes.InvalidArgument, "account is nil")
 )
+
+func NewAccountServer() *lile.Server {
+	db := database.DatabaseFromEnv()
+	db.Migrate()
+	defer db.Close()
+
+	as := AccountServer{DB: db}
+
+	impl := func(g *grpc.Server) {
+		account.RegisterAccountServiceServer(g, as)
+	}
+
+	return lile.NewServer(
+		lile.Name("account_service"),
+		lile.Implementation(impl),
+		lile.Publishers(map[string]string{
+			"Create":                "account_service.created",
+			"Update":                "account_service.updated",
+			"Delete":                "account_service.deleted",
+			"GeneratePasswordToken": "account_service.password_token_generated",
+			"ResetPassword":         "account_service.password_reset",
+			"ConfirmAccount":        "account_service.account_confirmed",
+		}),
+	)
+}
 
 func accountDetailsFromAccount(a *database.Account) *account.Account {
 	imgs := map[string]*image_service.Image{}
@@ -81,10 +107,15 @@ func imageService() image_service.ImageServiceClient {
 		return is
 	}
 
+	addr := os.Getenv("IMAGE_SERVICE_ADDR")
+	if addr == "" {
+		addr = "image_service"
+	}
+
 	t := opentracing.GlobalTracer()
 
 	conn, err := grpc.Dial(
-		os.Getenv("IMAGE_SERVICE_ADDR"),
+		addr,
 		grpc.WithInsecure(),
 		grpc.WithTimeout(1*time.Second),
 		grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t)),
